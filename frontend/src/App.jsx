@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import "./App.css";
 import "./modernizacao.css";
+import "./refinamento-v5.css";
 
 import Admin from "./Admin";
 import Login from "./Login";
@@ -54,10 +55,25 @@ function App() {
   const [categoria, setCategoria] = useState("Todos");
 
   const [pesquisa, setPesquisa] = useState("");
-  const [favoritos, setFavoritos] = useState(() => { try { return JSON.parse(localStorage.getItem("valt-favoritos") || "[]"); } catch { return []; } });
-  useEffect(() => { try { localStorage.setItem("valt-favoritos", JSON.stringify(favoritos)); } catch (erro) { console.warn("Favoritos não salvos", erro); } }, [favoritos]);
+  const [favoritos,setFavoritos]=useState([]);
+  const [favoritosCarregados,setFavoritosCarregados]=useState(false);
+  const [usuarioFavoritos,setUsuarioFavoritos]=useState(null);
+  // Favoritos ficam isolados por conta neste navegador. Sincronização remota exige sessão autenticada.
+  useEffect(()=>{
+    const chave=usuarioFavoritos ? `valt-favoritos-cliente-${usuarioFavoritos}` : "valt-favoritos-anonimos";
+    try {const dados=JSON.parse(localStorage.getItem(chave)||"[]");setFavoritos(Array.isArray(dados)?dados:[]);}catch{setFavoritos([]);}
+    setFavoritosCarregados(true);
+  },[usuarioFavoritos]);
+  useEffect(()=>{
+    if(!favoritosCarregados)return;
+    const chave=usuarioFavoritos ? `valt-favoritos-cliente-${usuarioFavoritos}` : "valt-favoritos-anonimos";
+    try{localStorage.setItem(chave,JSON.stringify(favoritos));}catch(erro){console.warn("Favoritos não salvos",erro);}
+  },[favoritos,favoritosCarregados,usuarioFavoritos]);
   const [mostrarFavoritos, setMostrarFavoritos] = useState(false);
   const [ordenacao, setOrdenacao] = useState("destaques");
+  const [precoMinimo,setPrecoMinimo]=useState("");
+  const [precoMaximo,setPrecoMaximo]=useState("");
+  const [apenasDisponiveis,setApenasDisponiveis]=useState(false);
   const formatarCVT = (valor) => `CVT ${Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const categoriasDisponiveis = ["Todos", ...new Set(produtos.map((produto) => produto.categoria).filter(Boolean))];
   const alternarFavorito = (id) => setFavoritos((atual) => atual.includes(id) ? atual.filter((item) => item !== id) : [...atual, id]);
@@ -77,10 +93,6 @@ function App() {
     Object.assign(body.style,{position:"fixed",top:`-${y}px`,left:"0",right:"0",width:"100%"});
     return () => {Object.assign(body.style,anterior);window.scrollTo({top:y,behavior:"instant"});};
   },[mostrarCarrinho]);
-  useEffect(() => {
-    if (produtoSelecionado || mostrarConta || mostrarAdmin || mostrarLogin || mostrarCadastro || mostrarProdutosUsados) return;
-    if (posicaoScrollVitrine.current !== null) {const y=posicaoScrollVitrine.current;posicaoScrollVitrine.current=null;requestAnimationFrame(()=>window.scrollTo({top:y,behavior:"instant"}));}
-  },[produtoSelecionado,mostrarConta,mostrarAdmin,mostrarLogin,mostrarCadastro,mostrarProdutosUsados]);
 
   const [mostrarProdutosUsados, setMostrarProdutosUsados] =
     useState(false);
@@ -149,6 +161,11 @@ function App() {
   const [quantidadeDetalhes, setQuantidadeDetalhes] =
     useState(1);
 
+  useEffect(() => {
+    if (produtoSelecionado || mostrarConta || mostrarAdmin || mostrarLogin || mostrarCadastro || mostrarProdutosUsados) return;
+    if (posicaoScrollVitrine.current !== null) {const y=posicaoScrollVitrine.current;posicaoScrollVitrine.current=null;requestAnimationFrame(()=>window.scrollTo({top:y,behavior:"instant"}));}
+  },[produtoSelecionado,mostrarConta,mostrarAdmin,mostrarLogin,mostrarCadastro,mostrarProdutosUsados]);
+
   // =====================================================
   // RECUPERAR USUARIO SALVO
   // =====================================================
@@ -163,6 +180,8 @@ function App() {
           JSON.parse(usuarioSalvo);
 
         setUsuario(dados);
+        setFavoritosCarregados(false);
+        setUsuarioFavoritos(dados.id || null);
 
         console.log(
           "USUÁRIO RECUPERADO:",
@@ -369,6 +388,8 @@ function App() {
     );
 
     setUsuario(dadosUsuario);
+    setFavoritosCarregados(false);
+    setUsuarioFavoritos(dadosUsuario.id || null);
 
     localStorage.setItem(
       "usuario",
@@ -390,6 +411,8 @@ function App() {
     );
 
     setUsuario(null);
+    setFavoritosCarregados(false);
+    setUsuarioFavoritos(null);
 
     setMostrarConta(false);
 
@@ -424,11 +447,7 @@ function App() {
             pesquisa.trim().toLowerCase()
           );
 
-      return (
-        correspondeCategoria &&
-        correspondePesquisa &&
-        (!mostrarFavoritos || favoritos.includes(produto.id))
-      );
+      return correspondeCategoria && correspondePesquisa && (!mostrarFavoritos || favoritos.includes(produto.id)) && (precoMinimo==="" || Number(produto.preco)>=Number(precoMinimo)) && (precoMaximo==="" || Number(produto.preco)<=Number(precoMaximo)) && (!apenasDisponiveis || Number(produto.estoque)>0);
     }
   );
 
@@ -801,13 +820,13 @@ function App() {
 
   if (mostrarCadastro) {
     return (
-      <Cadastro
+      <div className="valt-auth-shell"><Cadastro
         onCadastroSucesso={() => {
           setMostrarCadastro(false);
           setMostrarLogin(true);
         }}
         onVoltar={() => setMostrarCadastro(false)}
-      />
+      /></div>
     );
   }
 
@@ -1251,6 +1270,7 @@ function App() {
       >
         <div className="valt-section-heading"><div><span className="valt-kicker">EXPLORE A VALT-ON</span><h2>{mostrarFavoritos ? "Seus favoritos" : categoria === "Todos" ? "Produtos em destaque" : categoria}</h2><p>Encontre sua próxima escolha entre nossos produtos.</p></div><span className="valt-product-count">{produtosOrdenados.length} produtos</span></div>
         <div className="valt-category-strip" aria-label="Filtrar por categoria">{categoriasDisponiveis.map((nome) => <button key={nome} className={categoria === nome && !mostrarFavoritos ? "active" : ""} onClick={() => { setCategoria(nome); setMostrarFavoritos(false); }} aria-pressed={categoria === nome && !mostrarFavoritos}>{nome}</button>)}<button className={mostrarFavoritos ? "active" : ""} onClick={() => setMostrarFavoritos((atual) => !atual)} aria-pressed={mostrarFavoritos}>♡ Favoritos ({favoritos.length})</button></div>
+        <section className="valt-advanced-filters" aria-label="Filtros de produtos"><div className="valt-filter-heading"><strong>Refine sua busca</strong><button type="button" onClick={()=>{setPrecoMinimo("");setPrecoMaximo("");setApenasDisponiveis(false);setCategoria("Todos");setPesquisa("");setMostrarFavoritos(false);}}>Limpar filtros</button></div><div className="valt-filter-fields"><label>Preço mínimo (CVT)<input type="number" min="0" inputMode="decimal" placeholder="0" value={precoMinimo} onChange={e=>setPrecoMinimo(e.target.value)}/></label><label>Preço máximo (CVT)<input type="number" min="0" inputMode="decimal" placeholder="Sem limite" value={precoMaximo} onChange={e=>setPrecoMaximo(e.target.value)}/></label><label className="valt-filter-check"><input type="checkbox" checked={apenasDisponiveis} onChange={e=>setApenasDisponiveis(e.target.checked)}/> Somente em estoque</label></div></section>
         <div className="valt-toolbar"><span>{pesquisa ? `Resultados para “${pesquisa}”` : "Escolha seus favoritos"}</span><label>Ordenar por <select value={ordenacao} onChange={(evento) => setOrdenacao(evento.target.value)}><option value="destaques">Destaques</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option><option value="nome">Nome A–Z</option></select></label></div>
 
         {
@@ -1279,8 +1299,7 @@ function App() {
           produtosFiltrados.length ===
           0 && (
             <p>
-              Nenhum produto encontrado
-              nesta categoria.
+              Nenhum produto corresponde aos filtros. Tente limpar a busca ou ampliar a faixa de preço.
             </p>
           )
         }
