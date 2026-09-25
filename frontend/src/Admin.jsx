@@ -12,6 +12,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
   const [pedidos, setPedidos] = useState([]);
   const [buscaPedido, setBuscaPedido] = useState("");
   const [quantidadeClientes, setQuantidadeClientes] = useState(0);
+  const [visitantesAtivos, setVisitantesAtivos] = useState(null);
   const [quantidadeProdutos, setQuantidadeProdutos] = useState(0);
   const [sugestoes, setSugestoes] = useState([]);
   const [secaoAdmin, setSecaoAdmin] = useState("inicio");
@@ -83,6 +84,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
       })
       .then((dados) => {
         setQuantidadeClientes(dados.clientes);
+        setVisitantesAtivos(dados.visitantes_ativos ?? null);
         setQuantidadeProdutos(dados.produtos);
       })
       .catch((erro) => {
@@ -187,6 +189,8 @@ function Admin({ usuario, onVoltar, onLogout }) {
       setMensagem("Erro ao alterar status do pedido.");
     }
   };
+
+  useEffect(() => {const intervalo=setInterval(carregarEstatisticas,30000);return ()=>clearInterval(intervalo);},[]);
 
   useEffect(() => {
     carregarProdutos();
@@ -515,6 +519,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
   const metricas = [
     { simbolo: "◈", rotulo: "Produtos cadastrados", valor: quantidadeProdutos, tom: "gold" },
     { simbolo: "♙", rotulo: "Clientes", valor: quantidadeClientes, tom: "violet" },
+    { simbolo: "●", rotulo: "Visitantes ativos (2 min)", valor: visitantesAtivos ?? "—", tom: "blue" },
     { simbolo: "▣", rotulo: "Pedidos carregados", valor: pedidos.length, tom: "blue" },
     { simbolo: "◇", rotulo: "Sem estoque", valor: semEstoque, tom: "gray" },
     { simbolo: "⚠", rotulo: "Estoque baixo (até 5)", valor: estoqueBaixo, tom: "gold" },
@@ -530,7 +535,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
           <button type="button" onClick={() => setSecaoAdmin("produtos")}>◈ <span>Produtos</span></button>
           <button type="button" onClick={() => setSecaoAdmin("pedidos")}>▣ <span>Pedidos</span></button>
           <button type="button" onClick={() => document.getElementById("valt-admin-alertas")?.scrollIntoView({behavior:"smooth"})}>⚠ <span>Estoque</span></button>
-          <button type="button" onClick={() => setSecaoAdmin("sugestoes")}>♧ <span>Sugestões</span></button>
+          <button type="button" className="valt-admin-suggestions-nav" onClick={() => setSecaoAdmin("sugestoes")}>♧ <span>Sugestões</span></button>
           <button type="button" onClick={() => document.getElementById("valt-admin-formulario")?.scrollIntoView({behavior:"smooth"})}>＋ <span>Cadastrar produto</span></button>
         </nav>
         <div className="valt-admin-sidebar-bottom"><button type="button" onClick={onVoltar}>↗ &nbsp; Ver loja</button><button type="button" className="valt-admin-logout" onClick={onLogout}>↪ &nbsp; Sair da conta</button><small>VALT-ON · Ambiente de simulação</small></div>
@@ -538,7 +543,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
       <div className="valt-admin-workspace">
         <header className="valt-admin-topbar"><div className="valt-admin-topbar-search">⌕ <input aria-label="Buscar produto no painel" placeholder="Buscar produto cadastrado..." value={buscaProduto} onChange={(e)=>setBuscaProduto(e.target.value)} /></div><div className="valt-admin-user"><span className="valt-admin-avatar">♙</span><span>Administrador</span><button type="button" className="valt-admin-logout-top" onClick={onLogout}>Sair</button></div></header>
         <main className="valt-admin-content">
-          <div className="valt-admin-heading"><div><span className="valt-admin-kicker">PAINEL ADMINISTRATIVO</span><h1>Visão geral <span className="valt-admin-heading-dot">●</span></h1><p>Acompanhe os dados atuais da sua loja simulada.</p></div><button type="button" onClick={onVoltar} className="valt-admin-outline">↗ Ver loja</button></div>
+          <div className="valt-admin-heading"><div><span className="valt-admin-kicker">PAINEL ADMINISTRATIVO</span><h1>Visão geral <span className="valt-admin-heading-dot">●</span></h1><p>Acompanhe os dados atuais da sua loja simulada.</p></div><div className="valt-admin-heading-actions"><button type="button" className="valt-admin-suggestions-cta" onClick={() => setSecaoAdmin("sugestoes")}>♧ Abrir sugestões</button><button type="button" onClick={onVoltar} className="valt-admin-outline">↗ Ver loja</button></div></div>
           <section className="valt-admin-metrics" aria-label="Indicadores da loja">{metricas.map((item)=><div className="valt-admin-metric" key={item.rotulo}><span className={`valt-admin-metric-icon ${item.tom}`}>{item.simbolo}</span><span className="valt-admin-metric-label">{item.rotulo}</span><strong>{item.valor}</strong><small>Dados atuais da loja</small></div>)}</section>
           <div className="valt-admin-columns">
             <section className="valt-admin-panel valt-admin-alerts" id="valt-admin-alertas"><div className="valt-admin-panel-title"><div><span className="valt-admin-panel-icon">⚠</span><h2>Alertas de estoque</h2></div><button type="button" onClick={()=>setSecaoAdmin("produtos")}>Ver produtos ↗</button></div>

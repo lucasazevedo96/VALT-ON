@@ -4,6 +4,10 @@ const API_URL = import.meta.env.VITE_API_URL || "https://valt-on.onrender.com";
 
 export default function SugestoesAdmin({ usuario }) {
   const [sugestoes, setSugestoes] = useState([]);
+  const [mostrarResolvidas, setMostrarResolvidas] = useState(false);
+  const statusAberto = (status) => ["pendente", "em análise", "em analise"].includes(String(status || "").trim().toLowerCase());
+  const abertas = sugestoes.filter((item) => statusAberto(item.status));
+  const resolvidas = sugestoes.filter((item) => !statusAberto(item.status));
 
   const carregarSugestoes = async () => {
     try {
@@ -68,10 +72,10 @@ export default function SugestoesAdmin({ usuario }) {
     <div className="valt-admin-subpage valt-admin-suggestions" style={{ padding: "30px" }}>
       <h1>💡 Sugestões dos usuários</h1>
 
-      {sugestoes.length === 0 ? (
-        <p>Nenhuma sugestão recebida.</p>
-      ) : (
-        sugestoes.map((sugestao) => (
+      <p style={{color:"#52616c"}}>Em aberto: {abertas.length} · Resolvidas: {resolvidas.length}</p>
+      {resolvidas.length > 0 && <button type="button" aria-expanded={mostrarResolvidas} onClick={() => setMostrarResolvidas((atual) => !atual)} style={{padding:"11px 15px",background:"#f3d77e",color:"#27313b",border:"1px solid #d2b65c",borderRadius:7,fontWeight:750,minHeight:44,marginBottom:18}}>{mostrarResolvidas ? "Ocultar resolvidas" : `Ver resolvidas (${resolvidas.length})`}</button>}
+      {abertas.length === 0 && <p>Nenhuma sugestão pendente no momento.</p>}
+      {[...abertas, ...(mostrarResolvidas ? resolvidas : [])].map((sugestao) => (
           <div
             key={sugestao.id}
             style={{
@@ -156,8 +160,7 @@ export default function SugestoesAdmin({ usuario }) {
               <option value="Arquivada">Arquivada</option>
             </select>
           </div>
-        ))
-      )}
+        ))}
     </div>
   );
 }

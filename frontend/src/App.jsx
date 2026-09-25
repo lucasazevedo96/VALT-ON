@@ -9,6 +9,7 @@ import "./tema-v7-pastel.css";
 import "./mobile-account-menu.css";
 import "./fix-product-images.css";
 import "./melhorias-mobile.css";
+import "./admin-mobile-fix.css";
 
 import Admin from "./Admin";
 import Login from "./Login";
@@ -50,6 +51,15 @@ const obterUrlImagem = (url) => {
 // =====================================================
 
 function App() {
+  useEffect(() => {
+    let sessao = sessionStorage.getItem("valt-presenca");
+    if (!sessao) {sessao=crypto.randomUUID();sessionStorage.setItem("valt-presenca",sessao);}
+    const ping = () => {if(document.visibilityState!=="hidden")fetch(`${API_URL}/presenca/ping`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessao})}).catch(()=>{});};
+    ping();
+    const intervalo = setInterval(ping,45000);
+    document.addEventListener("visibilitychange",ping);
+    return () => {clearInterval(intervalo);document.removeEventListener("visibilitychange",ping);};
+  }, []);
   // =====================================================
   // ESTADOS
 

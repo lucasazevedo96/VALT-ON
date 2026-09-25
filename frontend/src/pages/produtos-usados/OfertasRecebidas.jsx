@@ -1,9 +1,15 @@
+import { useState } from "react";
+
 export default function OfertasRecebidas({
   usuario,
   ofertasRecebidasUsados,
   API_URL,
   carregarProdutosUsados,
 }) {
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const pendentes = ofertasRecebidasUsados.filter((oferta) => String(oferta.status).toUpperCase() === "PENDENTE");
+  const historico = ofertasRecebidasUsados.filter((oferta) => String(oferta.status).toUpperCase() !== "PENDENTE");
+
   if (!usuario || ofertasRecebidasUsados.length === 0) {
     return null;
   }
@@ -15,9 +21,15 @@ export default function OfertasRecebidas({
         marginBottom: "20px",
       }}
     >
-      <h2>Ofertas recebidas</h2>
+      <h2>Ofertas pendentes ({pendentes.length})</h2>
+      {pendentes.length === 0 && <p>Você não tem ofertas pendentes.</p>}
+      {historico.length > 0 && (
+        <button type="button" aria-expanded={mostrarHistorico} onClick={() => setMostrarHistorico((atual) => !atual)} style={{padding:"10px 14px",background:"#fffefa",color:"#27313b",border:"1px solid #b9c6ca",borderRadius:6,minHeight:44,marginBottom:10}}>
+          {mostrarHistorico ? "Ocultar histórico" : `Ver histórico (${historico.length})`}
+        </button>
+      )}
 
-      {ofertasRecebidasUsados.map((oferta) => (
+      {[...pendentes, ...(mostrarHistorico ? historico : [])].map((oferta) => (
         <div
           key={oferta.oferta_id}
           style={{
