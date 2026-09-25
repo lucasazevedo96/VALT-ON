@@ -7,7 +7,8 @@ export default function ListaProdutosUsados({
   setProdutoUsadoOfertaSelecionado,
   setValorOfertaUsado,
 }) {
-  if (produtosUsados.length === 0) {
+  const disponiveis = produtosUsados.filter((produto) => String(produto.status || "DISPONIVEL").toUpperCase() === "DISPONIVEL");
+  if (disponiveis.length === 0) {
     return (
       <p>
         Nenhum produto usado está disponível para venda no momento.
@@ -24,7 +25,7 @@ export default function ListaProdutosUsados({
         gap: "20px",
       }}
     >
-      {produtosUsados.map((produto) => (
+      {disponiveis.map((produto) => (
         <div
           key={produto.venda_id}
           style={{
