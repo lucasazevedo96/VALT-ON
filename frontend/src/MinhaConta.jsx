@@ -687,7 +687,7 @@ function MinhaConta({
   // =====================================================
 
   return (
-    <div className="valt-account-page"
+    <div className="valt-account-screen"
       style={{
         minHeight: "100vh",
         background: "#e0e0e0",
@@ -768,6 +768,7 @@ function MinhaConta({
             {usuario.email}
           </p>
 
+          <p className="valt-client-number"><strong>Seu número de cliente:</strong> #{usuario.id} <small>Compartilhe este número para receber 300 CVT quando um novo cliente indicado confirmar o e-mail.</small></p>
           <p>
             <strong>Saldo CVT:</strong>{" "}
             {Number(usuario.saldo_cvt || 0).toFixed(2)} CVT
@@ -892,8 +893,8 @@ function MinhaConta({
                 {[
                   { quantidade: 1000, valor: 5 },
                   { quantidade: 2500, valor: 12 },
-                  { quantidade: 5000, valor: 35 },
-                  { quantidade: 10000, valor: 80 },
+                  { quantidade: 5000, valor: 20 },
+                  { quantidade: 10000, valor: 35 },
                 ].map((pacote) => (
                   <button
                     key={pacote.quantidade}
@@ -1172,6 +1173,7 @@ function MinhaConta({
                     onClick={() => {
                       setEspacoAberto(espaco);
                     }}
+                    className="valt-enter-house"
                     style={{
                       padding: "10px 16px",
                       borderRadius: "8px",
