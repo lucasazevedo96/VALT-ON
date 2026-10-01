@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SugestoesAdmin from "./pages/SugestoesAdmin";
 import PedidosAdmin from "./pages/admin/PedidosAdmin";
 import ProdutosAdmin from "./pages/admin/ProdutosAdmin";
@@ -23,6 +23,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
   const [preco, setPreco] = useState("");
   const [categoria, setCategoria] = useState("Celulares");
   const [estoque, setEstoque] = useState("");
+  const [exclusiva, setExclusiva] = useState(false);
   const [prazoEntregaDias, setPrazoEntregaDias] = useState(3);
 
   // Imagem já salva no backend
@@ -33,6 +34,13 @@ function Admin({ usuario, onVoltar, onLogout }) {
 
   const [mensagem, setMensagem] = useState("");
   const [editandoId, setEditandoId] = useState(null);
+  const rolarParaEdicao = useRef(false);
+
+  useEffect(() => {
+    if (secaoAdmin !== "inicio" || !rolarParaEdicao.current) return;
+    rolarParaEdicao.current = false;
+    document.getElementById("valt-admin-formulario")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [secaoAdmin, editandoId]);
 
   // =====================================================
   // CARREGAR PRODUTOS
@@ -87,7 +95,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
         setQuantidadeClientes(dados.clientes);
         setVisitantesAtivos(dados.visitantes_ativos ?? null);
         setQuantidadeProdutos(dados.produtos);
-        setVendasResumo({comprados30:dados.comprados_30_dias,compradosTotal:dados.comprados_total,usados30:dados.usados_vendidos_30_dias,usadosTotal:dados.usados_vendidos_total});
+        setVendasResumo({ comprados30: dados.comprados_30_dias, compradosTotal: dados.comprados_total, usados30: dados.usados_vendidos_30_dias, usadosTotal: dados.usados_vendidos_total });
       })
       .catch((erro) => {
         console.error(erro);
@@ -192,7 +200,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
     }
   };
 
-  useEffect(() => {const intervalo=setInterval(carregarEstatisticas,30000);return ()=>clearInterval(intervalo);},[]);
+  useEffect(() => { const intervalo = setInterval(carregarEstatisticas, 30000); return () => clearInterval(intervalo); }, []);
 
   useEffect(() => {
     carregarProdutos();
@@ -223,6 +231,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
     setPreco("");
     setCategoria("Celulares");
     setEstoque("");
+    setExclusiva(false);
     setPrazoEntregaDias(3);
     setImagem("");
     setArquivoImagem(null);
@@ -321,6 +330,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
         preco: Number(preco),
         categoria: categoria,
         estoque: Number(estoque),
+        exclusiva: exclusiva,
         prazo_entrega_dias: Number(prazoEntregaDias),
         imagem: imagemFinal || null,
       };
@@ -382,7 +392,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
     } catch (erro) {
       console.error(erro);
 
-      setMensagem("❌ Erro ao salvar produto.");
+      setMensagem("ERRO: " + (erro?.message || String(erro)));
     }
   };
 
@@ -391,6 +401,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
   // =====================================================
 
   const editarProduto = (produto) => {
+    rolarParaEdicao.current = true;
     setEditandoId(produto.id);
 
     setNome(produto.nome || "");
@@ -398,6 +409,7 @@ function Admin({ usuario, onVoltar, onLogout }) {
     setPreco(produto.preco ?? "");
     setCategoria(produto.categoria === "Enfeites" ? "Decoração e Festas" : (produto.categoria || "Celulares"));
     setEstoque(produto.estoque ?? "");
+    setExclusiva(produto.exclusiva ?? false);
     setPrazoEntregaDias(produto.prazo_entrega_dias ?? 3);
 
     // Mantém a imagem existente
@@ -406,10 +418,8 @@ function Admin({ usuario, onVoltar, onLogout }) {
     // Nenhum novo arquivo selecionado inicialmente
     setArquivoImagem(null);
 
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
+    // O formulário fica na visão geral, abaixo dos indicadores.
+    // O useEffect acima rola até ele após a tela de produtos ser desmontada.
   };
 
   // =====================================================
@@ -519,271 +529,297 @@ function Admin({ usuario, onVoltar, onLogout }) {
   const estoqueBaixo = produtos.filter((item) => Number(item.estoque) > 0 && Number(item.estoque) <= 5).length;
   const alertas = produtos.filter((item) => Number(item.estoque) <= 5).slice(0, 8);
   const metricas = [
-    { simbolo: "◈", rotulo: "Produtos cadastrados", valor: quantidadeProdutos, tom: "gold" },
-    { simbolo: "♙", rotulo: "Clientes", valor: quantidadeClientes, tom: "violet" },
+    { simbolo: "â—ˆ", rotulo: "Produtos cadastrados", valor: quantidadeProdutos, tom: "gold" },
+    { simbolo: "â™™", rotulo: "Clientes", valor: quantidadeClientes, tom: "violet" },
     { simbolo: "●", rotulo: "Visitantes ativos (2 min)", valor: visitantesAtivos ?? "—", tom: "blue" },
-    { simbolo: "▣", rotulo: "Pedidos carregados", valor: pedidos.length, tom: "blue" },
+    { simbolo: "â–£", rotulo: "Pedidos carregados", valor: pedidos.length, tom: "blue" },
     { simbolo: "🛒", rotulo: "Produtos novos comprados (30 dias)", valor: vendasResumo?.comprados30 ?? "—", tom: "gold" },
     { simbolo: "🛒", rotulo: "Produtos novos comprados (total)", valor: vendasResumo?.compradosTotal ?? "—", tom: "gold" },
     { simbolo: "↗", rotulo: "Produtos usados vendidos (30 dias)", valor: vendasResumo?.usados30 ?? "—", tom: "violet" },
     { simbolo: "↗", rotulo: "Produtos usados vendidos (total)", valor: vendasResumo?.usadosTotal ?? "—", tom: "violet" },
-    { simbolo: "◇", rotulo: "Sem estoque", valor: semEstoque, tom: "gray" },
+    { simbolo: "â—‡", rotulo: "Sem estoque", valor: semEstoque, tom: "gray" },
     { simbolo: "⚠", rotulo: "Estoque baixo (até 5)", valor: estoqueBaixo, tom: "gold" },
   ];
 
   return (
     <div className="valt-admin-v6">
       <aside className="valt-admin-sidebar" aria-label="Navegação administrativa">
-        <div className="valt-admin-brand"><span className="valt-admin-brand-icon">▣</span><div><strong>VALT-<em>ON</em></strong><small>SIMULADOR DE COMPRAS</small></div></div>
+        <div className="valt-admin-brand"><span className="valt-admin-brand-icon">â–£</span><div><strong>VALT-<em>ON</em></strong><small>SIMULADOR DE COMPRAS</small></div></div>
         <div className="valt-admin-nav-label">PAINEL</div>
         <nav className="valt-admin-nav">
           <button className="active" type="button" aria-current="page" onClick={() => setSecaoAdmin("inicio")}>▦ <span>Visão geral</span></button>
-          <button type="button" onClick={() => setSecaoAdmin("produtos")}>◈ <span>Produtos</span></button>
-          <button type="button" onClick={() => setSecaoAdmin("pedidos")}>▣ <span>Pedidos</span></button>
-          <button type="button" onClick={() => document.getElementById("valt-admin-alertas")?.scrollIntoView({behavior:"smooth"})}>⚠ <span>Estoque</span></button>
+          <button type="button" onClick={() => setSecaoAdmin("produtos")}>â—ˆ <span>Produtos</span></button>
+          <button type="button" onClick={() => setSecaoAdmin("pedidos")}>â–£ <span>Pedidos</span></button>
+          <button type="button" onClick={() => document.getElementById("valt-admin-alertas")?.scrollIntoView({ behavior: "smooth" })}>âš  <span>Estoque</span></button>
           <button type="button" className="valt-admin-suggestions-nav" onClick={() => setSecaoAdmin("sugestoes")}>♧ <span>Sugestões</span></button>
-          <button type="button" onClick={() => document.getElementById("valt-admin-formulario")?.scrollIntoView({behavior:"smooth"})}>＋ <span>Cadastrar produto</span></button>
+          <button type="button" onClick={() => document.getElementById("valt-admin-formulario")?.scrollIntoView({ behavior: "smooth" })}>+ <span>Cadastrar produto</span></button>
         </nav>
         <div className="valt-admin-sidebar-bottom"><button type="button" onClick={onVoltar}>↗ &nbsp; Ver loja</button><button type="button" className="valt-admin-logout" onClick={onLogout}>↪ &nbsp; Sair da conta</button><small>VALT-ON · Ambiente de simulação</small></div>
       </aside>
       <div className="valt-admin-workspace">
-        <header className="valt-admin-topbar"><div className="valt-admin-topbar-search">⌕ <input aria-label="Buscar produto no painel" placeholder="Buscar produto cadastrado..." value={buscaProduto} onChange={(e)=>setBuscaProduto(e.target.value)} /></div><div className="valt-admin-user"><span className="valt-admin-avatar">♙</span><span>Administrador</span><button type="button" className="valt-admin-logout-top" onClick={onLogout}>Sair</button></div></header>
+        <header className="valt-admin-topbar"><div className="valt-admin-topbar-search">⌕ <input aria-label="Buscar produto no painel" placeholder="Buscar produto cadastrado..." value={buscaProduto} onChange={(e) => setBuscaProduto(e.target.value)} /></div><div className="valt-admin-user"><span className="valt-admin-avatar">♙</span><span>Administrador</span><button type="button" className="valt-admin-logout-top" onClick={onLogout}>Sair</button></div></header>
         <main className="valt-admin-content">
           <div className="valt-admin-heading"><div><span className="valt-admin-kicker">PAINEL ADMINISTRATIVO</span><h1>Visão geral <span className="valt-admin-heading-dot">●</span></h1><p>Acompanhe os dados atuais da sua loja simulada.</p></div><div className="valt-admin-heading-actions"><button type="button" className="valt-admin-suggestions-cta" onClick={() => setSecaoAdmin("sugestoes")}>♧ Abrir sugestões</button><button type="button" onClick={onVoltar} className="valt-admin-outline">↗ Ver loja</button></div></div>
-          <section className="valt-admin-metrics" aria-label="Indicadores da loja">{metricas.map((item)=><div className="valt-admin-metric" key={item.rotulo}><span className={`valt-admin-metric-icon ${item.tom}`}>{item.simbolo}</span><span className="valt-admin-metric-label">{item.rotulo}</span><strong>{item.valor}</strong><small>Dados atuais da loja</small></div>)}</section>
+          <section className="valt-admin-metrics" aria-label="Indicadores da loja">{metricas.map((item) => <div className="valt-admin-metric" key={item.rotulo}><span className={`valt-admin-metric-icon ${item.tom}`}>{item.simbolo}</span><span className="valt-admin-metric-label">{item.rotulo}</span><strong>{item.valor}</strong><small>Dados atuais da loja</small></div>)}</section>
           <div className="valt-admin-columns">
-            <section className="valt-admin-panel valt-admin-alerts" id="valt-admin-alertas"><div className="valt-admin-panel-title"><div><span className="valt-admin-panel-icon">⚠</span><h2>Alertas de estoque</h2></div><button type="button" onClick={()=>setSecaoAdmin("produtos")}>Ver produtos ↗</button></div>
-              {alertas.length===0?<p className="valt-admin-empty">Nenhum produto com estoque baixo no momento.</p>:<div className="valt-admin-alert-list">{alertas.map((item)=><div className="valt-admin-alert-row" key={item.id}><div className="valt-admin-alert-thumb">{item.imagem?<img src={obterUrlImagem(item.imagem)} alt="" loading="lazy"/>:"◈"}</div><div className="valt-admin-alert-info"><strong>{item.nome}</strong><small>{item.categoria||"Produto"}</small></div><div className="valt-admin-alert-stock"><strong>{Number(item.estoque)<=0?"Esgotado":`${item.estoque} restantes`}</strong><span><i style={{width:`${Math.min(100,Math.max(0,Number(item.estoque))*20)}%`}}/></span></div><button type="button" onClick={()=>editarProduto(item)}>Editar</button></div>)}</div>}
+            <section className="valt-admin-panel valt-admin-alerts" id="valt-admin-alertas"><div className="valt-admin-panel-title"><div><span className="valt-admin-panel-icon">⚠</span><h2>Alertas de estoque</h2></div><button type="button" onClick={() => setSecaoAdmin("produtos")}>Ver produtos ↗</button></div>
+              {alertas.length === 0 ? <p className="valt-admin-empty">Nenhum produto com estoque baixo no momento.</p> : <div className="valt-admin-alert-list">{alertas.map((item) => <div className="valt-admin-alert-row" key={item.id}><div className="valt-admin-alert-thumb">{item.imagem ? <img src={obterUrlImagem(item.imagem)} alt="" loading="lazy" /> : "â—ˆ"}</div><div className="valt-admin-alert-info"><strong>{item.nome}</strong><small>{item.categoria || "Produto"}</small></div><div className="valt-admin-alert-stock"><strong>{Number(item.estoque) <= 0 ? "Esgotado" : `${item.estoque} restantes`}</strong><span><i style={{ width: `${Math.min(100, Math.max(0, Number(item.estoque)) * 20)}%` }} /></span></div><button type="button" onClick={() => editarProduto(item)}>Editar</button></div>)}</div>}
             </section>
-            <section className="valt-admin-panel valt-admin-form-panel" id="valt-admin-formulario"><div className="valt-admin-panel-title"><div><span className="valt-admin-panel-icon">＋</span><h2>{editandoId!==null?"Editar produto":"Cadastrar produto"}</h2></div></div><p className="valt-admin-panel-hint">Gerencie seu catálogo sem sair do painel.</p>
-              {mensagem&&<div className="valt-admin-message" role="status">{mensagem}</div>}
+            <section className="valt-admin-panel valt-admin-form-panel" id="valt-admin-formulario"><div className="valt-admin-panel-title"><div><span className="valt-admin-panel-icon">+</span><h2>{editandoId !== null ? "Editar produto" : "Cadastrar produto"}</h2></div></div><p className="valt-admin-panel-hint">Gerencie seu catálogo sem sair do painel.</p>
+              {mensagem && <div className="valt-admin-message" role="status">{mensagem}</div>}
               <div className="valt-admin-product-form"><form onSubmit={salvarProduto}>
-        {/* NOME */}
+                {/* NOME */}
 
-        <div style={{ marginBottom: "15px" }}>
-          <label>
-            <strong>Nome do produto</strong>
-          </label>
+                <div style={{ marginBottom: "15px" }}>
+                  <label>
+                    <strong>Nome do produto</strong>
+                  </label>
 
-          <br />
+                  <br />
 
-          <input
-            type="text"
-            value={nome}
-            onChange={(evento) =>
-              setNome(evento.target.value)
-            }
-            placeholder="Ex.: Smartphone VALT-ON"
-            required
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "5px",
-            }}
-          />
-        </div>
+                  <input
+                    type="text"
+                    value={nome}
+                    onChange={(evento) =>
+                      setNome(evento.target.value)
+                    }
+                    placeholder="Ex.: Smartphone VALT-ON"
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginTop: "5px",
+                    }}
+                  />
+                </div>
 
-        {/* DESCRIÇÃO */}
+                {/* DESCRIÇÃO */}
 
-        <div style={{ marginBottom: "15px" }}>
-          <label>
-            <strong>Descrição</strong>
-          </label>
+                <div style={{ marginBottom: "15px" }}>
+                  <label>
+                    <strong>Descrição</strong>
+                  </label>
 
-          <br />
+                  <br />
 
-          <textarea
-            value={descricao}
-            onChange={(evento) =>
-              setDescricao(evento.target.value)
-            }
-            placeholder="Descrição do produto"
-            rows="4"
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "5px",
-            }}
-          />
-        </div>
+                  <textarea
+                    value={descricao}
+                    onChange={(evento) =>
+                      setDescricao(evento.target.value)
+                    }
+                    placeholder="Descrição do produto"
+                    rows="4"
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginTop: "5px",
+                    }}
+                  />
+                </div>
 
-        {/* PREÇO */}
+                {/* PREÇO */}
 
-        <div style={{ marginBottom: "15px" }}>
-          <label>
-            <strong>Preço</strong>
-          </label>
+                <div style={{ marginBottom: "15px" }}>
+                  <label>
+                    <strong>Preço</strong>
+                  </label>
 
-          <br />
+                  <br />
 
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={preco}
-            onChange={(evento) =>
-              setPreco(evento.target.value)
-            }
-            placeholder="0.00"
-            required
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "5px",
-            }}
-          />
-        </div>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={preco}
+                    onChange={(evento) =>
+                      setPreco(evento.target.value)
+                    }
+                    placeholder="0.00"
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginTop: "5px",
+                    }}
+                  />
+                </div>
 
-        {/* CATEGORIA */}
+                {/* CATEGORIA */}
 
-        <div style={{ marginBottom: "15px" }}>
-          <label>
-            <strong>Categoria</strong>
-          </label>
+                <div style={{ marginBottom: "15px" }}>
+                  <label>
+                    <strong>Categoria</strong>
+                  </label>
 
-          <br />
+                  <br />
 
-          <select
-            value={categoria}
-            onChange={(evento) =>
-              setCategoria(evento.target.value)
-            }
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "5px",
-            }}
-          >
-            {CATEGORIAS.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </div>
+                  <select
+                    value={categoria}
+                    onChange={(evento) =>
+                      setCategoria(evento.target.value)
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginTop: "5px",
+                    }}
+                  >
+                    {CATEGORIAS.map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>
+                </div>
 
-        {/* ESTOQUE */}
+                {/* ESTOQUE */}
 
-        <div style={{ marginBottom: "15px" }}>
-          <label>
-            <strong>Estoque</strong>
-          </label>
+                <div style={{ marginBottom: "15px" }}>
+                  <label>
+                    <strong>Estoque</strong>
+                  </label>
 
-          <br />
+                  <br />
 
-          <input
-            type="number"
-            min="0"
-            value={estoque}
-            onChange={(evento) =>
-              setEstoque(evento.target.value)
-            }
-            placeholder="Quantidade"
-            required
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "5px",
-            }}
-          />
-        </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max={exclusiva ? 1 : undefined}
+                    value={estoque}
+                    onChange={(evento) => {
+                      const valor = evento.target.value;
 
-        {/* PRAZO DE ENTREGA */}
+                      if (exclusiva) {
+                        setEstoque(1);
+                      } else {
+                        setEstoque(valor);
+                      }
+                    }}
+                    placeholder="Quantidade"
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginTop: "5px",
+                    }}
+                  />
+                </div>
 
-        <div style={{ marginBottom: "15px" }}>
-          <label>
-            <strong>Prazo de entrega (dias)</strong>
-          </label>
+                {/* FIGURINHA EXCLUSIVA */}
 
-          <br />
+                <div style={{ marginBottom: "15px" }}>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={exclusiva}
+                      onChange={(evento) => {
+                        setExclusiva(evento.target.checked);
 
-          <input
-            type="number"
-            min="0"
-            value={prazoEntregaDias}
-            onChange={(evento) =>
-              setPrazoEntregaDias(evento.target.value)
-            }
-            placeholder="Ex.: 3"
-            required
-            style={{
-              width: "100%",
-              padding: "10px",
-              marginTop: "5px",
-            }}
-          />
-        </div>
+                        if (evento.target.checked) {
+                          setEstoque(1);
+                        }
+                      }}
+                    />
+                    {" "}Figurinha exclusiva ⭐
+                  </label>
+                </div>
 
-        {/* =====================================================
+                {/* PRAZO DE ENTREGA */}
+
+                <div style={{ marginBottom: "15px" }}>
+                  <label>
+                    <strong>Prazo de entrega (dias)</strong>
+                  </label>
+
+                  <br />
+
+                  <input
+                    type="number"
+                    min="0"
+                    value={prazoEntregaDias}
+                    onChange={(evento) =>
+                      setPrazoEntregaDias(evento.target.value)
+                    }
+                    placeholder="Ex.: 3"
+                    required
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      marginTop: "5px",
+                    }}
+                  />
+                </div>
+
+                {/* =====================================================
             IMAGEM
         ===================================================== */}
 
-        <div style={{ marginBottom: "20px" }}>
-          <label>
-            <strong>Imagem do produto</strong>
-          </label>
+                <div style={{ marginBottom: "20px" }}>
+                  <label>
+                    <strong>Imagem do produto</strong>
+                  </label>
 
-          <br />
+                  <br />
 
-          <input
-            type="file"
-            accept="image/*"
-            onChange={selecionarImagem}
-            style={{
-              marginTop: "8px",
-            }}
-          />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={selecionarImagem}
+                    style={{
+                      marginTop: "8px",
+                    }}
+                  />
 
-          <br />
+                  <br />
 
-          <small>
-            Selecione uma imagem do seu computador.
-          </small>
+                  <small>
+                    Selecione uma imagem do seu computador.
+                  </small>
 
-          {/* PRÉVIA DA IMAGEM */}
+                  {/* PRÉVIA DA IMAGEM */}
 
-          {imagem && (
-            <div style={{ marginTop: "15px" }}>
-              <p>
-                <strong>Pré-visualização:</strong>
-              </p>
+                  {imagem && (
+                    <div style={{ marginTop: "15px" }}>
+                      <p>
+                        <strong>Pré-visualização:</strong>
+                      </p>
 
-              <img
-                src={
-                  arquivoImagem
-                    ? imagem
-                    : obterUrlImagem(imagem)
-                }
-                alt="Prévia"
-                style={{
-                  width: "200px",
-                  height: "160px",
-                  objectFit: "contain",
-                  border: "1px solid #ddd",
-                  borderRadius: "8px",
-                  padding: "5px",
-                }}
-              />
-            </div>
-          )}
-        </div>
+                      <img
+                        src={
+                          arquivoImagem
+                            ? imagem
+                            : obterUrlImagem(imagem)
+                        }
+                        alt="Prévia"
+                        style={{
+                          width: "200px",
+                          height: "160px",
+                          objectFit: "contain",
+                          border: "1px solid #ddd",
+                          borderRadius: "8px",
+                          padding: "5px",
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
 
-        {/* BOTÕES */}
+                {/* BOTÕES */}
 
-        <button type="submit">
-          {editandoId !== null
-            ? "💾 Salvar Alterações"
-            : "➕ Cadastrar Produto"}
-        </button>
+                <button type="submit">
+                  {editandoId !== null
+                    ? "💾 Salvar Alterações"
+                    : "âž• Cadastrar Produto"}
+                </button>
 
-        {editandoId !== null && (
-          <button
-            type="button"
-            onClick={limparFormulario}
-            style={{
-              marginLeft: "10px",
-            }}
-          >
-            ❌ Cancelar
-          </button>
-        )}
-      </form></div>
+                {editandoId !== null && (
+                  <button
+                    type="button"
+                    onClick={limparFormulario}
+                    style={{
+                      marginLeft: "10px",
+                    }}
+                  >
+                    ❌ Cancelar
+                  </button>
+                )}
+              </form></div>
             </section>
           </div>
           <footer className="valt-admin-footer">VALT-ON · Simulador de vendas — nenhuma transação financeira real.</footer>
