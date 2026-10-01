@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useRef, useState } from "react";
 
 import "./App.css";
 import "./modernizacao.css";
@@ -20,6 +20,7 @@ import ProdutoDetalhes from "./ProdutoDetalhes";
 import RedefinirSenha from "./RedefinirSenha";
 import ProdutosUsados from "./pages/ProdutosUsados";
 import BotoesNavegacao from "./components/BotoesNavegacao";
+import Manual from "./Manual";
 import { CATEGORIAS, normalizarCategoria } from "./categorias";
 
 const API_URL = "https://valt-on.onrender.com";
@@ -54,24 +55,26 @@ const obterUrlImagem = (url) => {
 function App() {
   useEffect(() => {
     let sessao = sessionStorage.getItem("valt-presenca");
-    if (!sessao) {sessao=crypto.randomUUID();sessionStorage.setItem("valt-presenca",sessao);}
-    const ping = () => {if(document.visibilityState!=="hidden")fetch(`${API_URL}/presenca/ping`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessao})}).catch(()=>{});};
+    if (!sessao) { sessao = crypto.randomUUID(); sessionStorage.setItem("valt-presenca", sessao); }
+    const ping = () => { if (document.visibilityState !== "hidden") fetch(`${API_URL}/presenca/ping`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sessao }) }).catch(() => { }); };
     ping();
-    const intervalo = setInterval(ping,45000);
-    document.addEventListener("visibilitychange",ping);
-    return () => {clearInterval(intervalo);document.removeEventListener("visibilitychange",ping);};
+    const intervalo = setInterval(ping, 45000);
+    document.addEventListener("visibilitychange", ping);
+    return () => { clearInterval(intervalo); document.removeEventListener("visibilitychange", ping); };
   }, []);
   // =====================================================
   // ESTADOS
 
   const [produtos, setProdutos] = useState([]);
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const PRODUTOS_POR_PAGINA = 60;
   const [indiceDestaque, setIndiceDestaque] = useState(0);
   const [mostrarBoasVindas, setMostrarBoasVindas] = useState(() => {
     try { return sessionStorage.getItem("valt-boas-vindas-v1") !== "visto"; }
     catch { return true; }
   });
   const fecharBoasVindas = () => {
-    try { sessionStorage.setItem("valt-boas-vindas-v1", "visto"); } catch {}
+    try { sessionStorage.setItem("valt-boas-vindas-v1", "visto"); } catch { }
     setMostrarBoasVindas(false);
   };
   const produtosDestaque = produtos.filter((produto) => produto.imagem).slice(0, 8);
@@ -90,44 +93,51 @@ function App() {
   const [categoria, setCategoria] = useState("Todos");
 
   const [pesquisa, setPesquisa] = useState("");
-  const [favoritos,setFavoritos]=useState([]);
-  const [favoritosCarregados,setFavoritosCarregados]=useState(false);
-  const [usuarioFavoritos,setUsuarioFavoritos]=useState(null);
-  // Favoritos ficam isolados por conta neste navegador. Sincronização remota exige sessão autenticada.
-  useEffect(()=>{
-    const chave=usuarioFavoritos ? `valt-favoritos-cliente-${usuarioFavoritos}` : "valt-favoritos-anonimos";
-    try {const dados=JSON.parse(localStorage.getItem(chave)||"[]");setFavoritos(Array.isArray(dados)?dados:[]);}catch{setFavoritos([]);}
+  const [favoritos, setFavoritos] = useState([]);
+  const [favoritosCarregados, setFavoritosCarregados] = useState(false);
+  const [usuarioFavoritos, setUsuarioFavoritos] = useState(null);
+  // Favoritos ficam isolados por conta neste navegador. SincronizaÃ§Ã£o remota exige sessÃ£o autenticada.
+  useEffect(() => {
+    const chave = usuarioFavoritos ? `valt-favoritos-cliente-${usuarioFavoritos}` : "valt-favoritos-anonimos";
+    try { const dados = JSON.parse(localStorage.getItem(chave) || "[]"); setFavoritos(Array.isArray(dados) ? dados : []); } catch { setFavoritos([]); }
     setFavoritosCarregados(true);
-  },[usuarioFavoritos]);
-  useEffect(()=>{
-    if(!favoritosCarregados)return;
-    const chave=usuarioFavoritos ? `valt-favoritos-cliente-${usuarioFavoritos}` : "valt-favoritos-anonimos";
-    try{localStorage.setItem(chave,JSON.stringify(favoritos));}catch(erro){console.warn("Favoritos não salvos",erro);}
-  },[favoritos,favoritosCarregados,usuarioFavoritos]);
+  }, [usuarioFavoritos]);
+  useEffect(() => {
+    if (!favoritosCarregados) return;
+    const chave = usuarioFavoritos ? `valt-favoritos-cliente-${usuarioFavoritos}` : "valt-favoritos-anonimos";
+    try { localStorage.setItem(chave, JSON.stringify(favoritos)); } catch (erro) { console.warn("Favoritos nÃ£o salvos", erro); }
+  }, [favoritos, favoritosCarregados, usuarioFavoritos]);
   const [mostrarFavoritos, setMostrarFavoritos] = useState(false);
   const [ordenacao, setOrdenacao] = useState("destaques");
-  const [precoMinimo,setPrecoMinimo]=useState("");
-  const [precoMaximo,setPrecoMaximo]=useState("");
-  const [apenasDisponiveis,setApenasDisponiveis]=useState(false);
+  const [precoMinimo, setPrecoMinimo] = useState("");
+  const [precoMaximo, setPrecoMaximo] = useState("");
+  const [apenasDisponiveis, setApenasDisponiveis] = useState(false);
+
+  useEffect(() => {
+    setPaginaAtual(1);
+  }, [categoria, pesquisa, mostrarFavoritos, ordenacao, precoMinimo, precoMaximo, apenasDisponiveis]);
   const formatarCVT = (valor) => `CVT ${Number(valor || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const categoriasDisponiveis = ["Todos", ...CATEGORIAS, ...new Set(produtos.map((produto) => normalizarCategoria(produto.categoria)).filter(Boolean))].filter((item, index, lista) => lista.indexOf(item) === index);
   const alternarFavorito = (id) => setFavoritos((atual) => atual.includes(id) ? atual.filter((item) => item !== id) : [...atual, id]);
 
   const [carrinho, setCarrinho] = useState([]);
+  const [ehPresente, setEhPresente] = useState(false);
+  const [destinatarioId, setDestinatarioId] = useState("");
+  const [mensagemPresente, setMensagemPresente] = useState("");
 
   const [mostrarCarrinho, setMostrarCarrinho] =
     useState(false);
 
   const posicaoScrollVitrine = useRef(null);
-  // Congela a vitrine sob o drawer e restaura a posição no fechamento.
+  // Congela a vitrine sob o drawer e restaura a posiÃ§Ã£o no fechamento.
   useEffect(() => {
     if (!mostrarCarrinho) return;
     const y = window.scrollY;
     const body = document.body;
-    const anterior = {position:body.style.position,top:body.style.top,left:body.style.left,right:body.style.right,width:body.style.width};
-    Object.assign(body.style,{position:"fixed",top:`-${y}px`,left:"0",right:"0",width:"100%"});
-    return () => {Object.assign(body.style,anterior);window.scrollTo({top:y,behavior:"instant"});};
-  },[mostrarCarrinho]);
+    const anterior = { position: body.style.position, top: body.style.top, left: body.style.left, right: body.style.right, width: body.style.width };
+    Object.assign(body.style, { position: "fixed", top: `-${y}px`, left: "0", right: "0", width: "100%" });
+    return () => { Object.assign(body.style, anterior); window.scrollTo({ top: y, behavior: "instant" }); };
+  }, [mostrarCarrinho]);
 
   const [mostrarProdutosUsados, setMostrarProdutosUsados] =
     useState(false);
@@ -168,6 +178,7 @@ function App() {
   const [mostrarConta, setMostrarConta] =
     useState(false);
 
+  const [mostrarManual, setMostrarManual] = useState(false);
   const [mostrarSugestoes, setMostrarSugestoes] =
     useState(false);
 
@@ -178,7 +189,7 @@ function App() {
     useState("");
 
   const [sugestaoTipo, setSugestaoTipo] =
-    useState("Sugestão");
+    useState("SugestÃ£o");
 
   const [sugestaoMensagem, setSugestaoMensagem] =
     useState("");
@@ -198,8 +209,8 @@ function App() {
 
   useEffect(() => {
     if (produtoSelecionado || mostrarConta || mostrarAdmin || mostrarLogin || mostrarCadastro || mostrarProdutosUsados) return;
-    if (posicaoScrollVitrine.current !== null) {const y=posicaoScrollVitrine.current;posicaoScrollVitrine.current=null;requestAnimationFrame(()=>window.scrollTo({top:y,behavior:"instant"}));}
-  },[produtoSelecionado,mostrarConta,mostrarAdmin,mostrarLogin,mostrarCadastro,mostrarProdutosUsados]);
+    if (posicaoScrollVitrine.current !== null) { const y = posicaoScrollVitrine.current; posicaoScrollVitrine.current = null; requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" })); }
+  }, [produtoSelecionado, mostrarConta, mostrarAdmin, mostrarLogin, mostrarCadastro, mostrarProdutosUsados]);
 
   // =====================================================
   // RECUPERAR USUARIO SALVO
@@ -219,12 +230,12 @@ function App() {
         setUsuarioFavoritos(dados.id || null);
 
         console.log(
-          "USUÁRIO RECUPERADO:",
+          "USU?RIO RECUPERADO:",
           dados
         );
       } catch (error) {
         console.error(
-          "Erro ao recuperar usuário:",
+          "Erro ao recuperar usu?rio:",
           error
         );
 
@@ -234,7 +245,7 @@ function App() {
   }, []);
 
   // =====================================================
-  // CARREGAR ESPAÇOS DO USUÁRIO
+  // CARREGAR ESPA?OS DO CLIENTE
   // =====================================================
 
   useEffect(() => {
@@ -250,26 +261,26 @@ function App() {
 
         if (!resposta.ok) {
           throw new Error(
-            "Não foi possível carregar os espaços."
+            "N?o foi poss?vel carregar os espa?os."
           );
         }
 
         const dados = await resposta.json();
 
         console.log(
-          "ESPAÇOS PARA COMPRA:",
+          "ESPA?OS PARA COMPRA:",
           dados
         );
 
         setEspacos(dados);
 
-        // Selecionar automaticamente o primeiro espaço
+        // Selecionar automaticamente o primeiro espa?o
         if (dados.length > 0) {
           setEspacoSelecionado(String(dados[0].id));
         }
       } catch (error) {
         console.error(
-          "ERRO AO CARREGAR ESPAÇOS:",
+          "ERRO AO CARREGAR ESPA?OS:",
           error
         );
 
@@ -302,11 +313,6 @@ function App() {
       const dados =
         await resposta.json();
 
-      console.log(
-        "PRODUTOS RECEBIDOS:",
-        dados
-      );
-
       setProdutos(dados);
       setErro("");
     } catch (error) {
@@ -316,7 +322,7 @@ function App() {
       );
 
       setErro(
-        "Não foi possível conectar ao servidor."
+        "N?o foi poss?vel conectar ao servidor."
       );
     } finally {
       setCarregando(false);
@@ -418,7 +424,7 @@ function App() {
 
   const loginRealizado = (dadosUsuario) => {
     console.log(
-      "USUÁRIO LOGADO",
+      "USU?RIO LOGADO",
       dadosUsuario
     );
 
@@ -462,7 +468,7 @@ function App() {
     );
 
     alert(
-      "Você saiu da sua conta. "
+      "Voc? saiu da sua conta. "
     );
   };
 
@@ -484,7 +490,7 @@ function App() {
             pesquisa.trim().toLowerCase()
           );
 
-      return correspondeCategoria && correspondePesquisa && (!mostrarFavoritos || favoritos.includes(produto.id)) && (precoMinimo==="" || Number(produto.preco)>=Number(precoMinimo)) && (precoMaximo==="" || Number(produto.preco)<=Number(precoMaximo)) && (!apenasDisponiveis || Number(produto.estoque)>0);
+      return correspondeCategoria && correspondePesquisa && (!mostrarFavoritos || favoritos.includes(produto.id)) && (precoMinimo === "" || Number(produto.preco) >= Number(precoMinimo)) && (precoMaximo === "" || Number(produto.preco) <= Number(precoMaximo)) && (!apenasDisponiveis || Number(produto.estoque) > 0);
     }
   );
 
@@ -494,6 +500,14 @@ function App() {
     if (ordenacao === "nome") return a.nome.localeCompare(b.nome, "pt-BR");
     return 0;
   });
+
+  const inicioPagina = (paginaAtual - 1) * PRODUTOS_POR_PAGINA;
+  const produtosPagina = produtosOrdenados.slice(
+    inicioPagina,
+    inicioPagina + PRODUTOS_POR_PAGINA
+  );
+
+  const totalPaginas = Math.ceil(produtosOrdenados.length / PRODUTOS_POR_PAGINA);
 
   // =====================================================
   // ADICIONAR AO CARRINHO
@@ -522,7 +536,7 @@ function App() {
             produto.estoque
           ) {
             alert(
-              `Quantidade máxima disponível: ${produto.estoque}`
+              `Quantidade m?xima dispon?vel: ${produto.estoque}`
             );
 
             return carrinhoAtual;
@@ -595,7 +609,7 @@ function App() {
               item.estoque
             ) {
               alert(
-                `Quantidade máxima disponível: ${item.estoque}`
+                `Quantidade m?xima dispon?vel: ${item.estoque}`
               );
 
               return item;
@@ -668,21 +682,21 @@ function App() {
   const [finalizandoCompra, setFinalizandoCompra] = useState(false);
   const finalizarCompra = async () => {
     if (finalizandoCompra) return;
-    // Verificar se está logado
+    // Verificar se estÃ¡ logado
     if (!usuario || !usuario.id) {
-      alert("❌ Você precisa estar logado para finalizar a compra.");
+      alert("âŒ VocÃª precisa estar logado para finalizar a compra.");
       return;
     }
 
     // Verificar carrinho
     if (carrinho.length === 0) {
-      alert("Seu carrinho está vazio.");
+      alert("Seu carrinho est? vazio.");
       return;
     }
 
-    // Verificar espaço selecionado
-    if (!espacoSelecionado) {
-      alert("❌ Selecione um espaço para realizar a compra.");
+    // Verificar espaÃ§o selecionado
+    if (!ehPresente && !espacoSelecionado) {
+      alert("âŒ Selecione um espaÃ§o para realizar a compra.");
       return;
     }
 
@@ -696,6 +710,33 @@ function App() {
         quantidade: item.quantidade,
       }));
 
+      let espacoIdCompra = espacoSelecionado;
+
+      if (ehPresente) {
+        if (!destinatarioId) {
+          alert("Informe o n?mero do cliente que receber? o presente.");
+          setFinalizandoCompra(false);
+          return;
+        }
+
+        const respostaEspacos = await fetch(
+          `${API_URL}/clientes/${Number(destinatarioId)}/espacos`
+        );
+
+        const espacosDestinatario = await respostaEspacos.json();
+
+        if (
+          !respostaEspacos.ok ||
+          !Array.isArray(espacosDestinatario) ||
+          espacosDestinatario.length === 0
+        ) {
+          alert("N?o foi poss?vel localizar um espa?o para o destinat?rio.");
+          setFinalizandoCompra(false);
+          return;
+        }
+
+        espacoIdCompra = espacosDestinatario[0].id;
+      }
       // ---------------------------------------------------
       // ENVIAR CLIENTE + ITENS PARA O BACKEND
       // ---------------------------------------------------
@@ -703,11 +744,14 @@ function App() {
 
       const dadosCompra = {
         cliente_id: usuario.id,
-        espaco_id: espacoSelecionado,
+        espaco_id: espacoIdCompra,
         itens: itensCompra,
+        eh_presente: ehPresente,
+        destinatario_id: ehPresente ? Number(destinatarioId) : null,
+        mensagem_presente: ehPresente ? mensagemPresente : null,
       };
 
-      console.log("USUÁRIO DA COMPRA:", usuario);
+      console.log("USU?RIO DA COMPRA:", usuario);
       console.log("ENVIANDO COMPRA:", dadosCompra);
 
       const resposta = await fetch(
@@ -734,7 +778,7 @@ function App() {
         );
       }
 
-      // ATUALIZAR SALDO DO USUÁRIO APÓS A COMPRA
+      // ATUALIZAR SALDO DO USU?RIO AP?S A COMPRA
       const usuarioAtualizado = {
         ...usuario,
         saldo_cvt: Number(dados.saldo_cvt),
@@ -751,10 +795,10 @@ function App() {
       // COMPRA REALIZADA
       // ---------------------------------------------------
       alert(
-        `✅ Compra realizada com sucesso!\n\n` +
-        `📦 Pedido: #${dados.pedido_id}\n` +
-        `👤 Cliente: ${usuario.nome}\n` +
-        `💰 Total: ${formatarCVT(dados.total)}`
+        `âœ… Compra realizada com sucesso!\n\n` +
+        `ðŸ“¦ Pedido: #${dados.pedido_id}\n` +
+        `ðŸ‘¤ Cliente: ${usuario.nome}\n` +
+        `ðŸ’° Total: ${formatarCVT(dados.total)}`
       );
 
       // ---------------------------------------------------
@@ -777,10 +821,19 @@ function App() {
       );
 
       alert(
-        `❌ ${error.message || "Não foi possível finalizar a compra."}`
+        `âŒ ${error.message || "NÃ£o foi possÃ­vel finalizar a compra."}`
       );
-    } finally {setFinalizandoCompra(false);}
+    } finally { setFinalizandoCompra(false); }
   };
+  // =====================================================
+  // TELA MANUAL
+  // =====================================================
+
+  if (mostrarManual) {
+    return (
+      <Manual onVoltar={() => setMostrarManual(false)} />
+    );
+  }
   // =====================================================
   // TELA ADMINISTRADOR
   // =====================================================
@@ -814,7 +867,7 @@ function App() {
               borderRadius: "8px",
             }}
           >
-            ← Voltar para a loja
+            â†’ Voltar para a loja
           </button>
         </div>
       </div>
@@ -822,7 +875,7 @@ function App() {
   }
 
   // =====================================================
-  // TELA DE RECUPERAÇÃO DE SENHA
+  // TELA DE RECUPERAÃ‡ÃƒO DE SENHA
   // =====================================================
 
   if (
@@ -921,8 +974,8 @@ function App() {
           setMostrarConta(false);
         }}
         onLogout={sairDaConta}
-        produtosFavoritos={produtos.filter((item)=>favoritos.includes(item.id))}
-        onAbrirProduto={(produto)=>{setMostrarConta(false);abrirDetalhesProduto(produto);}}
+        produtosFavoritos={produtos.filter((item) => favoritos.includes(item.id))}
+        onAbrirProduto={(produto) => { setMostrarConta(false); abrirDetalhesProduto(produto); }}
       />
     );
   }
@@ -942,15 +995,15 @@ function App() {
           setQuantidadeDetalhes(1);
         }}
         onComprar={() => {
-          const quantidade=Math.min(Math.max(1,quantidadeDetalhes),Number(produtoSelecionado.estoque));
-          if(quantidade<=0)return;
-          setCarrinho((atual)=>{const existente=atual.find((item)=>item.id===produtoSelecionado.id);const total=Math.min(Number(produtoSelecionado.estoque),(existente?.quantidade||0)+quantidade);return existente?atual.map((item)=>item.id===produtoSelecionado.id?{...item,quantidade:total}:item):[...atual,{...produtoSelecionado,quantidade:total}];});
-          setProdutoSelecionado(null);setQuantidadeDetalhes(1);setMostrarCarrinho(true);
+          const quantidade = Math.min(Math.max(1, quantidadeDetalhes), Number(produtoSelecionado.estoque));
+          if (quantidade <= 0) return;
+          setCarrinho((atual) => { const existente = atual.find((item) => item.id === produtoSelecionado.id); const total = Math.min(Number(produtoSelecionado.estoque), (existente?.quantidade || 0) + quantidade); return existente ? atual.map((item) => item.id === produtoSelecionado.id ? { ...item, quantidade: total } : item) : [...atual, { ...produtoSelecionado, quantidade: total }]; });
+          setProdutoSelecionado(null); setQuantidadeDetalhes(1); setMostrarCarrinho(true);
         }}
-        relacionados={produtos.filter((item)=>item.id!==produtoSelecionado.id&&item.categoria===produtoSelecionado.categoria).slice(0,4)}
-        onVerRelacionado={(produto)=>{setProdutoSelecionado(produto);setQuantidadeDetalhes(1);window.scrollTo({top:0,behavior:"smooth"});}}
+        relacionados={produtos.filter((item) => item.id !== produtoSelecionado.id && item.categoria === produtoSelecionado.categoria).slice(0, 4)}
+        onVerRelacionado={(produto) => { setProdutoSelecionado(produto); setQuantidadeDetalhes(1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
         favorito={favoritos.includes(produtoSelecionado.id)}
-        onAlternarFavorito={()=>alternarFavorito(produtoSelecionado.id)}
+        onAlternarFavorito={() => alternarFavorito(produtoSelecionado.id)}
         obterUrlImagem={obterUrlImagem}
       />
     );
@@ -992,7 +1045,7 @@ function App() {
       !sugestaoEmail.trim() ||
       !sugestaoMensagem.trim()
     ) {
-      alert("Preencha todos os campos obrigatórios.");
+      alert("Preencha todos os campos obrigatÃ³rios.");
       return;
     }
 
@@ -1012,18 +1065,18 @@ function App() {
       });
 
       if (!resposta.ok) {
-        throw new Error("Erro ao enviar sugestão.");
+        throw new Error("Erro ao enviar sugestÃ£o.");
       }
 
-      alert("Sugestão enviada com sucesso!");
+      alert("SugestÃ£o enviada com sucesso!");
 
       setSugestaoNome("");
       setSugestaoEmail("");
-      setSugestaoTipo("Sugestão");
+      setSugestaoTipo("SugestÃ£o");
       setSugestaoMensagem("");
       setMostrarSugestoes(false);
     } catch (erro) {
-      alert("Não foi possível enviar a sugestão.");
+      alert("NÃ£o foi possÃ­vel enviar a sugestÃ£o.");
       console.error(erro);
     }
   };
@@ -1033,11 +1086,11 @@ function App() {
       {mostrarBoasVindas && (
         <div className="valt-welcome-backdrop" role="presentation" onMouseDown={(evento) => { if (evento.target === evento.currentTarget) fecharBoasVindas(); }}>
           <section className="valt-welcome-dialog" role="dialog" aria-modal="true" aria-labelledby="valt-welcome-title" aria-describedby="valt-welcome-description">
-            <button type="button" className="valt-welcome-close" onClick={fecharBoasVindas} aria-label="Fechar aviso">×</button>
+            <button type="button" className="valt-welcome-close" onClick={fecharBoasVindas} aria-label="Fechar aviso">Ã—</button>
             <img src="/logo-valt-on.png" alt="VALT-ON" className="valt-welcome-logo" />
-            <h2 id="valt-welcome-title">Bem-vindo à VALT-ON!</h2>
-            <p id="valt-welcome-description">Um simulador de compras online. Todas as compras são fictícias: não há compras, pagamentos nem entregas reais.</p>
-            <button type="button" className="valt-welcome-start" onClick={fecharBoasVindas} autoFocus>Fechar e começar a navegar →</button>
+            <h2 id="valt-welcome-title">Bem-vindo Ã  VALT-ON!</h2>
+            <p id="valt-welcome-description">Um simulador de compras online. Todas as compras sÃ£o fictÃ­cias: nÃ£o hÃ¡ compras, pagamentos nem entregas reais.</p>
+            <button type="button" className="valt-welcome-start" onClick={fecharBoasVindas} autoFocus>Fechar e comeÃ§ar a navegar â†’</button>
           </section>
         </div>
       )}
@@ -1081,7 +1134,7 @@ function App() {
             className="valt-search"
             aria-label="Pesquisar produtos"
             type="search"
-            placeholder="🔎 Pesquisar produto..."
+            placeholder="ðŸ”Ž Pesquisar produto..."
             value={pesquisa}
             onChange={(e) =>
               setPesquisa(e.target.value)
@@ -1104,6 +1157,7 @@ function App() {
             setMostrarLogin={setMostrarLogin}
             setMostrarCadastro={setMostrarCadastro}
             setMostrarAdmin={setMostrarAdmin}
+            setMostrarManual={setMostrarManual}
             mostrarProdutosUsados={mostrarProdutosUsados}
             setMostrarProdutosUsados={setMostrarProdutosUsados}
             carregarProdutosUsados={carregarProdutosUsados}
@@ -1141,12 +1195,12 @@ function App() {
                 color: "#000",
               }}
             >
-              💡 Sugestões
+              ðŸ’¡ SugestÃµes
             </h2>
 
             <p>
-              Envie sua sugestão, informe um problema ou conte
-              para nós como podemos melhorar a VALT-ON.
+              Envie sua sugestÃ£o, informe um problema ou conte
+              para nÃ³s como podemos melhorar a VALT-ON.
             </p>
 
             <label>Nome</label>
@@ -1194,7 +1248,7 @@ function App() {
                 boxSizing: "border-box",
               }}
             >
-              <option>Sugestão</option>
+              <option>SugestÃ£o</option>
               <option>Problema/erro</option>
               <option>Melhoria</option>
               <option>Outro</option>
@@ -1249,7 +1303,7 @@ function App() {
                   cursor: "pointer",
                 }}
               >
-                📤 Enviar sugestão
+                ðŸ“¤ Enviar sugestÃ£o
               </button>
             </div>
           </div>
@@ -1259,7 +1313,7 @@ function App() {
 
 
       <div className="valt-benefits" aria-label="Diferenciais da loja">
-        <span>✦ Curadoria de produtos</span><span>◈ Compra com créditos CVT</span><span>♡ Seus favoritos em um só lugar</span>
+        <span>âœ¦ Curadoria de produtos</span><span>â—ˆ Compra com crÃ©ditos CVT</span><span>â™¡ Seus favoritos em um sÃ³ lugar</span>
       </div>
 
       {/* =================================================
@@ -1272,7 +1326,7 @@ function App() {
           textAlign: "center",
         }}
       >
-        <div className="valt-hero-content"><span className="valt-eyebrow">VALT-ON · SUA VITRINE DIGITAL</span><h2
+        <div className="valt-hero-content"><span className="valt-eyebrow">VALT-ON Â· SUA VITRINE DIGITAL</span><h2
           style={{
             color: "#222",
             fontSize: "30px",
@@ -1280,34 +1334,33 @@ function App() {
             marginBottom: "10px",
           }}
         >
-          Descubra o que combina com você
+          Descubra o que combina com vocÃª
         </h2>
 
-        <p
-          style={{
-            color: "#444",
-            fontSize: "18px",
-            fontWeight: "500",
-          }}
-        >
-          Uma seleção especial para explorar, favoritar e comprar com seus créditos CVT.
-        </p>
+          <p
+            style={{
+              color: "#444",
+              fontSize: "18px",
+              fontWeight: "500",
+            }}
+          >
+            Uma seleÃ§Ã£o especial para explorar, favoritar e comprar com seus crÃ©ditos CVT.
+          </p>
 
-        <button
-          onClick={() => {
-            window.scrollTo({
-              top: document.getElementById("produtos")?.getBoundingClientRect().top + window.scrollY,
-              behavior: "smooth",
-            });
-          }}
-        >
-          Explorar produtos <span aria-hidden="true">→</span>
-        </button></div>
+          <button
+            onClick={() => {
+              window.scrollTo({
+                top: document.getElementById("produtos")?.getBoundingClientRect().top + window.scrollY,
+                behavior: "smooth",
+              });
+            }}
+          >
+            Explorar produtos <span aria-hidden="true">â†’</span>
+          </button></div>
         {produtosDestaque.length > 0 && (
           <div className="valt-hero-visual valt-hero-carousel" aria-label="Produtos em destaque">
             <img key={produtosDestaque[indiceDestaque % produtosDestaque.length]?.id ?? indiceDestaque} src={obterUrlImagem(produtosDestaque[indiceDestaque % produtosDestaque.length].imagem)} alt={produtosDestaque[indiceDestaque % produtosDestaque.length].nome || "Produto em destaque"} />
-            <span>ESCOLHAS PARA VOCÊ</span>
-            {produtosDestaque.length > 1 && <div className="valt-carousel-dots" aria-label="Selecionar produto em destaque">{produtosDestaque.map((produto, indice) => <button type="button" key={produto.id ?? indice} className={indice === indiceDestaque % produtosDestaque.length ? "active" : ""} onClick={() => setIndiceDestaque(indice)} aria-label={`Ver destaque ${indice + 1}`} aria-current={indice === indiceDestaque % produtosDestaque.length ? "true" : undefined} />)}</div>}
+            <span>ESCOLHAS PARA VOCÃŠ</span>
           </div>
         )}
       </section >
@@ -1321,10 +1374,10 @@ function App() {
           padding: "20px",
         }}
       >
-        <div className="valt-section-heading"><div><span className="valt-kicker">EXPLORE A VALT-ON</span><h2>{mostrarFavoritos ? "Seus favoritos" : categoria === "Todos" ? "Produtos em destaque" : categoria}</h2><p>Encontre sua próxima escolha entre nossos produtos.</p></div><span className="valt-product-count">{produtosOrdenados.length} produtos</span></div>
-        <div className="valt-category-strip" aria-label="Filtrar por categoria">{categoriasDisponiveis.map((nome) => <button key={nome} className={categoria === nome && !mostrarFavoritos ? "active" : ""} onClick={() => { setCategoria(nome); setMostrarFavoritos(false); }} aria-pressed={categoria === nome && !mostrarFavoritos}>{nome}</button>)}<button className={mostrarFavoritos ? "active" : ""} onClick={() => setMostrarFavoritos((atual) => !atual)} aria-pressed={mostrarFavoritos}>♡ Favoritos ({favoritos.length})</button></div>
-        <section className="valt-advanced-filters" aria-label="Filtros de produtos"><div className="valt-filter-heading"><strong>Refine sua busca</strong><button type="button" onClick={()=>{setPrecoMinimo("");setPrecoMaximo("");setApenasDisponiveis(false);setCategoria("Todos");setPesquisa("");setMostrarFavoritos(false);}}>Limpar filtros</button></div><div className="valt-filter-fields"><label>Preço mínimo (CVT)<input type="number" min="0" inputMode="decimal" placeholder="0" value={precoMinimo} onChange={e=>setPrecoMinimo(e.target.value)}/></label><label>Preço máximo (CVT)<input type="number" min="0" inputMode="decimal" placeholder="Sem limite" value={precoMaximo} onChange={e=>setPrecoMaximo(e.target.value)}/></label><label className="valt-filter-check"><input type="checkbox" checked={apenasDisponiveis} onChange={e=>setApenasDisponiveis(e.target.checked)}/> Somente em estoque</label></div></section>
-        <div className="valt-toolbar"><span>{pesquisa ? `Resultados para “${pesquisa}”` : "Escolha seus favoritos"}</span><label>Ordenar por <select value={ordenacao} onChange={(evento) => setOrdenacao(evento.target.value)}><option value="destaques">Destaques</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option><option value="nome">Nome A–Z</option></select></label></div>
+        <div className="valt-section-heading"><div><span className="valt-kicker">EXPLORE A VALT-ON</span><h2>{mostrarFavoritos ? "Seus favoritos" : categoria === "Todos" ? "Produtos em destaque" : categoria}</h2><p>Encontre sua prÃ³xima escolha entre nossos produtos.</p></div><span className="valt-product-count">{produtosOrdenados.length} produtos</span></div>
+        <div className="valt-category-strip" aria-label="Filtrar por categoria">{categoriasDisponiveis.map((nome) => <button key={nome} className={categoria === nome && !mostrarFavoritos ? "active" : ""} onClick={() => { setCategoria(nome); setMostrarFavoritos(false); }} aria-pressed={categoria === nome && !mostrarFavoritos}>{nome}</button>)}<button className={mostrarFavoritos ? "active" : ""} onClick={() => setMostrarFavoritos((atual) => !atual)} aria-pressed={mostrarFavoritos}>â™¡ Favoritos ({favoritos.length})</button></div>
+        <section className="valt-advanced-filters" aria-label="Filtros de produtos"><div className="valt-filter-heading"><strong>Refine sua busca</strong><button type="button" onClick={() => { setPrecoMinimo(""); setPrecoMaximo(""); setApenasDisponiveis(false); setCategoria("Todos"); setPesquisa(""); setMostrarFavoritos(false); }}>Limpar filtros</button></div><div className="valt-filter-fields"><label>PreÃ§o mÃ­nimo (CVT)<input type="number" min="0" inputMode="decimal" placeholder="0" value={precoMinimo} onChange={e => setPrecoMinimo(e.target.value)} /></label><label>PreÃ§o mÃ¡ximo (CVT)<input type="number" min="0" inputMode="decimal" placeholder="Sem limite" value={precoMaximo} onChange={e => setPrecoMaximo(e.target.value)} /></label><label className="valt-filter-check"><input type="checkbox" checked={apenasDisponiveis} onChange={e => setApenasDisponiveis(e.target.checked)} /> Somente em estoque</label></div></section>
+        <div className="valt-toolbar"><span>{pesquisa ? `Resultados para "${pesquisa}"` : "Escolha seus favoritos"}</span><label>Ordenar por <select value={ordenacao} onChange={(evento) => setOrdenacao(evento.target.value)}><option value="destaques">Destaques</option><option value="menor-preco">Menor preÃ§o</option><option value="maior-preco">Maior preÃ§o</option><option value="nome">Nome Aâ€“Z</option></select></label></div>
 
         {
           carregando && (
@@ -1352,7 +1405,7 @@ function App() {
           produtosFiltrados.length ===
           0 && (
             <p>
-              Nenhum produto corresponde aos filtros. Tente limpar a busca ou ampliar a faixa de preço.
+              Nenhum produto corresponde aos filtros. Tente limpar a busca ou ampliar a faixa de preÃ§o.
             </p>
           )
         }
@@ -1364,10 +1417,10 @@ function App() {
             gap: "20px",
           }}
         >
-          {produtosOrdenados.map(
+          {produtosPagina.map(
             (produto) => (
               <div
-                className="valt-product-card"
+                className={`valt-product-card${produto.exclusiva ? " exclusiva" : ""}`}
                 key={produto.id}
                 onClick={() => abrirDetalhesProduto(produto)}
                 style={{
@@ -1376,369 +1429,516 @@ function App() {
                   borderRadius:
                     "10px",
                   padding: "20px",
-                  background: "#fff",
+                  background: produto.exclusiva ? "#fff8df" : "#fff",
                   cursor: "pointer",
                 }}
               >
-                <div className="valt-card-badges"><span>{produto.estoque > 0 ? "DISPONÍVEL" : "ESGOTADO"}</span><button type="button" className={favoritos.includes(produto.id) ? "valt-favorite active" : "valt-favorite"} aria-label={favoritos.includes(produto.id) ? `Remover ${produto.nome} dos favoritos` : `Favoritar ${produto.nome}`} aria-pressed={favoritos.includes(produto.id)} onClick={(evento) => { evento.stopPropagation(); alternarFavorito(produto.id); }}>{favoritos.includes(produto.id) ? "♥" : "♡"}</button></div>
+                <div className="valt-card-badges">
+                  {produto.exclusiva && (
+                    <span
+                      style={{
+                        background: "#f3d36b",
+                        color: "#5a4300",
+                        fontWeight: "700",
+                        borderRadius: "6px",
+                        padding: "4px 8px",
+                        marginRight: "6px",
+                      }}
+                    >
+                      {"\u2B50 EXCLUSIVA"}
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    className={favoritos.includes(produto.id) ? "valt-favorite active" : "valt-favorite"}
+                    aria-label={favoritos.includes(produto.id) ? `Remover ${produto.nome} dos favoritos` : `Favoritar ${produto.nome}`}
+                    aria-pressed={favoritos.includes(produto.id)}
+                    onClick={(evento) => {
+                      evento.stopPropagation();
+                      alternarFavorito(produto.id);
+                    }}
+                  >
+                    {favoritos.includes(produto.id) ? "â™¥" : "â™¡"}
+                  </button>
+                </div>
+
                 {/* IMAGEM */}
 
                 <div
                   style={{
-                    textAlign:
-                      "center",
-                    marginBottom:
-                      "5px",
+                    textAlign: "center",
+                    marginBottom: "5px",
                   }}
                 >
                   {produto.imagem ? (
                     <img
                       className="valt-product-image"
                       loading="lazy"
-                      src={obterUrlImagem(
-                        produto.imagem
-                      )}
+                      src={obterUrlImagem(produto.imagem)}
                       alt={produto.nome}
-                      onError={(
-                        evento
-                      ) => {
-                        evento.currentTarget.style.display =
-                          "none";
+                      onError={(evento) => {
+                        evento.currentTarget.style.display = "none";
                       }}
                       style={{
                         width: "100%",
                         height: "90px",
-                        objectFit:
-                          "contain",
-                        borderRadius:
-                          "8px",
+                        objectFit: "contain",
+                        borderRadius: "8px",
                         transform: "scale(1.2)",
                       }}
                     />
                   ) : (
                     <div
                       style={{
-                        fontSize:
-                          "50px",
-                        textAlign:
-                          "center",
-                        height:
-                          "100px",
-                        display:
-                          "flex",
-                        alignItems:
-                          "center",
-                        justifyContent:
-                          "center",
+                        fontSize: "50px",
+                        textAlign: "center",
+                        height: "100px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      🖼️
+                      ðŸ–¼ï¸
                     </div>
                   )}
                 </div>
 
-                {/* NOME */}
+        {/* NOME */}
 
-                <h3
-                  style={{
-                    fontSize: "14px",
-                    margin: "8px 0",
-                  }}
-                >
-                  {produto.nome}
-                </h3>
+        <h3
+          style={{
+            fontSize: "14px",
+            margin: "8px 0",
+          }}
+        >
+          {produto.nome}
+        </h3>
 
-                {/* PREÇO */}
+        {/* PREÃ‡O */}
 
-                <h3
-                  style={{
-                    fontSize: "14px",
-                    margin: "8px 0 12px 0",
-                  }}
-                >
-                  {formatarCVT(produto.preco)}
-                </h3>
+        <h3
+          style={{
+            fontSize: "14px",
+            margin: "8px 0 12px 0",
+          }}
+        >
+          {formatarCVT(produto.preco)}
+        </h3>
 
-                {/* COMPRAR */}
+        {/* COMPRAR */}
 
-                <button
-                  className="valt-buy-button"
-                  onClick={(evento) => {
-                    evento.stopPropagation();
+        <button
+          className="valt-buy-button"
+          onClick={(evento) => {
+            evento.stopPropagation();
 
-                    adicionarCarrinho(
-                      produto
-                    );
-                  }}
-                  disabled={
-                    produto.estoque <=
-                    0
-                  }
-                  style={{
-                    cursor:
-                      produto.estoque > 0
-                        ? "pointer"
-                        : "not-allowed",
-                    fontSize: "24px",
-                  }}
-                >
-                  {produto.estoque >
-                    0
-                    ? "Adicionar ao carrinho"
-                    : "Sem estoque"}
-                </button>
-              </div>
-            )
-          )}
-        </div>
-        <section className="valt-bottom-cta"><div><span className="valt-kicker">MAIS POSSIBILIDADES</span><h2>Encontrou algo que gostou?</h2><p>Salve seus produtos favoritos e volte quando quiser.</p></div><button onClick={() => { setMostrarFavoritos(true); document.getElementById("produtos")?.scrollIntoView({behavior:"smooth"}); }}>Ver favoritos →</button></section>
+            adicionarCarrinho(
+              produto
+            );
+          }}
+          disabled={
+            produto.estoque <=
+            0
+          }
+          style={{
+            cursor:
+              produto.estoque > 0
+                ? "pointer"
+                : "not-allowed",
+            fontSize: "24px",
+          }}
+        >
+          {produto.estoque >
+            0
+            ? "Adicionar ao carrinho"
+            : "Sem estoque"}
+        </button>
+    </div>
+  )
+          )
+}
+              </div >
+  { totalPaginas > 1 && (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        gap: "8px",
+        flexWrap: "wrap",
+        margin: "30px 0",
+      }}
+    >
+      <button
+        onClick={() => setPaginaAtual((pagina) => Math.max(1, pagina - 1))}
+        disabled={paginaAtual === 1}
+      >
+        ? Anterior
+      </button>
+
+      {Array.from({ length: totalPaginas }, (_, index) => index + 1).map(
+        (pagina) => (
+          <button
+            key={pagina}
+            onClick={() => setPaginaAtual(pagina)}
+          >
+            {pagina}
+          </button>
+        )
+      )}
+
+      <button
+        onClick={() =>
+          setPaginaAtual((pagina) =>
+            Math.min(totalPaginas, pagina + 1)
+          )
+        }
+        disabled={paginaAtual === totalPaginas}
+      >
+        Pr?xima ?
+      </button>
+    </div>
+  )}
+<section className="valt-bottom-cta"><div><span className="valt-kicker">MAIS POSSIBILIDADES</span><h2>Encontrou algo que gostou?</h2><p>Salve seus produtos favoritos e volte quando quiser.</p></div><button onClick={() => { setMostrarFavoritos(true); document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" }); }}>Ver favoritos â†’</button></section>
       </main >
-      <footer className="valt-footer"><div><strong>VALT-ON</strong><p>Sua vitrine digital para descobrir e comprar.</p></div><div><strong>Explore</strong><button onClick={() => { setMostrarFavoritos(false); setCategoria("Todos"); document.getElementById("produtos")?.scrollIntoView({behavior:"smooth"}); }}>Todos os produtos</button><button onClick={() => { setMostrarFavoritos(true); document.getElementById("produtos")?.scrollIntoView({behavior:"smooth"}); }}>Meus favoritos</button></div><div><strong>Atendimento</strong><button onClick={() => setMostrarSugestoes(true)}>Enviar sugestão</button><button onClick={() => setMostrarCarrinho(true)}>Meu carrinho</button></div><small>© {new Date().getFullYear()} VALT-ON. Todos os direitos reservados.</small></footer>
+  <footer className="valt-footer"><div><strong>VALT-ON</strong><p>Sua vitrine digital para descobrir e comprar.</p></div><div><strong>Explore</strong><button onClick={() => { setMostrarFavoritos(false); setCategoria("Todos"); document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" }); }}>Todos os produtos</button><button onClick={() => { setMostrarFavoritos(true); document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" }); }}>Meus favoritos</button></div><div><strong>Atendimento</strong><button onClick={() => setMostrarSugestoes(true)}>Enviar sugestÃ£o</button><button onClick={() => setMostrarCarrinho(true)}>Meu carrinho</button></div><small>Â© {new Date().getFullYear()} VALT-ON. Todos os direitos reservados.</small></footer>
 
-      {/* =================================================
+{/* =================================================
           CARRINHO
       ================================================= */}
 
-      {
-        mostrarCarrinho && (
+{
+  mostrarCarrinho && (
+    <>
+      <div className="valt-cart-overlay" onClick={() => setMostrarCarrinho(false)} aria-hidden="true" />
+      <div className="valt-cart-drawer" role="dialog" aria-modal="true" aria-label="Meu carrinho"
+        style={{
+          position: "fixed",
+          right: "20px",
+          top: "80px",
+          width: "350px",
+          maxWidth: "90%",
+          maxHeight: "80vh",
+          overflowY: "auto",
+          background: "#fff9d6",
+          border:
+            "1px solid #ccc",
+          borderRadius:
+            "10px",
+          padding: "20px",
+          boxShadow:
+            "0 4px 15px rgba(0,0,0,0.2)",
+          zIndex: 1000,
+        }}
+      >
+        <div className="valt-cart-title"><h2>Meu carrinho <span>({quantidadeCarrinho})</span></h2><button aria-label="Fechar carrinho" onClick={() => setMostrarCarrinho(false)}>âœ•</button></div>
+
+        {carrinho.length ===
+          0 ? (
+          <p>
+            Seu carrinho estÃ¡
+            vazio.
+          </p>
+        ) : (
           <>
-          <div className="valt-cart-overlay" onClick={() => setMostrarCarrinho(false)} aria-hidden="true" />
-          <div className="valt-cart-drawer" role="dialog" aria-modal="true" aria-label="Meu carrinho"
-            style={{
-              position: "fixed",
-              right: "20px",
-              top: "80px",
-              width: "350px",
-              maxWidth: "90%",
-              maxHeight: "80vh",
-              overflowY: "auto",
-              background: "#fff9d6",
-              border:
-                "1px solid #ccc",
-              borderRadius:
-                "10px",
-              padding: "20px",
-              boxShadow:
-                "0 4px 15px rgba(0,0,0,0.2)",
-              zIndex: 1000,
-            }}
-          >
-            <div className="valt-cart-title"><h2>Meu carrinho <span>({quantidadeCarrinho})</span></h2><button aria-label="Fechar carrinho" onClick={()=>setMostrarCarrinho(false)}>✕</button></div>
-
-            {carrinho.length ===
-              0 ? (
-              <p>
-                Seu carrinho está
-                vazio.
-              </p>
-            ) : (
-              <>
-                {carrinho.map(
-                  (item) => (
-                    <div
-                      key={item.id}
-                      style={{
-                        borderBottom:
-                          "1px solid #ddd",
-                        padding:
-                          "10px 0",
-                      }}
-                    >
-                      <strong>
-                        {item.nome}
-                      </strong>
-
-                      <p>
-                        {formatarCVT(item.preco)}
-                      </p>
-
-                      <div>
-                        <button
-                          onClick={() =>
-                            diminuirQuantidade(
-                              item.id
-                            )
-                          }
-                          style={{
-                            width: "42px",
-                            height: "42px",
-                            fontSize: "22px",
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                            backgroundColor: "#e0e0e0",
-                            color: "#000000",
-                            border: "2px solid #000000",
-                            borderRadius: "8px",
-                          }}
-                        >
-                          −
-                        </button>
-
-                        <span
-                          style={{
-                            margin:
-                              "0 10px",
-                          }}
-                        >
-                          {
-                            item.quantidade
-                          }
-                        </span>
-
-                        <button
-                          onClick={() =>
-                            aumentarQuantidade(
-                              item.id
-                            )
-                          }
-                          style={{
-                            width: "42px",
-                            height: "42px",
-                            fontSize: "22px",
-                            fontWeight: "bold",
-                            cursor: "pointer",
-                            backgroundColor: "#e0e0e0",
-                            color: "#000000",
-                            border: "2px solid #000000",
-                            borderRadius: "8px",
-                          }}
-                        >
-                          +
-                        </button>
-                      </div>
-
-                      <button
-                        onClick={() =>
-                          removerCarrinho(
-                            item.id
-                          )
-                        }
-                        style={{
-                          marginTop: "8px",
-                          padding: "10px 14px",
-                          fontSize: "15px",
-                          fontWeight: "bold",
-                          cursor: "pointer",
-                          width: "100%",
-                          backgroundColor: "#e0e0e0",
-                          color: "#000000",
-                          border: "2px solid #000000",
-                          borderRadius: "8px",
-                        }}
-                      >
-                        🗑️ Remover
-                      </button>
-                    </div>
-                  )
-                )}
-
-                {/* ESPAÇO DA COMPRA */}
+            {carrinho.map(
+              (item) => (
                 <div
+                  key={item.id}
                   style={{
-                    marginTop: "15px",
-                    marginBottom: "15px",
+                    borderBottom:
+                      "1px solid #ddd",
+                    padding:
+                      "10px 0",
                   }}
                 >
-                  <label
-                    style={{
-                      display: "block",
-                      fontWeight: "bold",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    Escolha o espaço para esta compra:
-                  </label>
+                  <strong>
+                    {item.nome}
+                  </strong>
 
-                  <select
-                    value={espacoSelecionado}
-                    onChange={(e) =>
-                      setEspacoSelecionado(e.target.value)
+                  <p>
+                    {formatarCVT(item.preco)}
+                  </p>
+
+                  <div>
+                    <button
+                      onClick={() =>
+                        diminuirQuantidade(
+                          item.id
+                        )
+                      }
+                      style={{
+                        width: "42px",
+                        height: "42px",
+                        fontSize: "22px",
+                        fontWeight: "bold",
+                        cursor: "pointer",
+                        backgroundColor: "#e0e0e0",
+                        color: "#000000",
+                        border: "2px solid #000000",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      âˆ’
+                    </button>
+
+                    <span
+                      style={{
+                        margin:
+                          "0 10px",
+                      }}
+                    >
+                      {
+                        item.quantidade
+                      }
+                    </span>
+
+                    <button
+                      onClick={() =>
+                        aumentarQuantidade(
+                          item.id
+                        )
+                      }
+                      style={{
+                        width: "42px",
+                        height: "42px",
+                        fontSize: "22px",
+                        fontWeight: "bold",
+                        cursor: "pointer",
+                        backgroundColor: "#e0e0e0",
+                        color: "#000000",
+                        border: "2px solid #000000",
+                        borderRadius: "8px",
+                      }}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() =>
+                      removerCarrinho(
+                        item.id
+                      )
                     }
                     style={{
+                      marginTop: "8px",
+                      padding: "10px 14px",
+                      fontSize: "15px",
+                      fontWeight: "bold",
+                      cursor: "pointer",
                       width: "100%",
-                      padding: "10px",
-                      fontSize: "16px",
                       backgroundColor: "#e0e0e0",
                       color: "#000000",
                       border: "2px solid #000000",
                       borderRadius: "8px",
                     }}
                   >
-                    <option value="">
-                      Selecione um espaço
-                    </option>
-
-                    {espacos.map((espaco) => (
-                      <option
-                        key={espaco.id}
-                        value={espaco.id}
-                      >
-                        {espaco.nome}
-                      </option>
-                    ))}
-                  </select>
+                    ðŸ—‘ï¸ Remover
+                  </button>
                 </div>
-
-                {/* TOTAL */}
-                <div className="valt-cart-summary"><strong>Resumo do pedido</strong><small>O total será debitado do saldo CVT após a confirmação.</small></div>
-                <h3>
-                  Total: {formatarCVT(totalCarrinho)}
-                </h3>
-
-                {/* FINALIZAR */}
-
-                <button
-                  onClick={finalizarCompra}
-                  disabled={finalizandoCompra}
-                  style={{
-                    padding: "14px 20px",
-                    cursor: "pointer",
-                    marginTop: "10px",
-                    fontWeight: "bold",
-                    fontSize: "16px",
-                    width: "100%",
-                    minHeight: "48px",
-                    backgroundColor: "#e0e0e0",
-                    color: "#000000",
-                    border: "2px solid #000000",
-                    borderRadius: "8px",
-                  }}
-                >
-                  {finalizandoCompra ? "Processando..." : "💳 Finalizar compra"}
-                </button>
-              </>
+              )
             )}
 
-            {/* FECHAR */}
+            <div
+              style={{
+                marginTop: "15px",
+                marginBottom: "15px",
+                padding: "12px",
+                border: "1px solid #ccc",
+                borderRadius: "10px",
+              }}
+            >
+              <label style={{ display: "block", fontWeight: "bold", marginBottom: "10px" }}>
+                Como deseja fazer esta compra?
+              </label>
+
+              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEhPresente(false);
+                    setDestinatarioId("");
+                    setMensagemPresente("");
+                  }}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    border: "2px solid #000",
+                    cursor: "pointer",
+                    backgroundColor: !ehPresente ? "#000" : "#fff",
+                    color: !ehPresente ? "#fff" : "#000",
+                  }}
+                >
+                  Comprar para mim
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setEhPresente(true)}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "8px",
+                    border: "2px solid #000",
+                    cursor: "pointer",
+                    backgroundColor: ehPresente ? "#000" : "#fff",
+                    color: ehPresente ? "#fff" : "#000",
+                  }}
+                >
+                  ðŸŽ Enviar como presente
+                </button>
+              </div>
+
+              {ehPresente && (
+                <div style={{ marginTop: "12px" }}>
+                  <label style={{ display: "block", fontWeight: "bold", marginBottom: "6px" }}>
+                    NÃºmero do cliente que receberÃ¡ o presente:
+                  </label>
+
+                  <input
+                    type="number"
+                    value={destinatarioId}
+                    onChange={(e) => setDestinatarioId(e.target.value)}
+                    placeholder="Digite o nÃºmero do cliente"
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #999",
+                      boxSizing: "border-box",
+                    }}
+                  />
+
+                  <label style={{ display: "block", fontWeight: "bold", marginTop: "10px", marginBottom: "6px" }}>
+                    Mensagem para acompanhar o presente:
+                  </label>
+
+                  <textarea
+                    value={mensagemPresente}
+                    onChange={(e) => setMensagemPresente(e.target.value)}
+                    placeholder="Ex.: Foi de coraÃ§Ã£o, tomara que goste!"
+                    rows={3}
+                    style={{
+                      width: "100%",
+                      padding: "10px",
+                      borderRadius: "8px",
+                      border: "1px solid #999",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+            {/* ESPAÃ‡O DA COMPRA */}
+            <div
+              style={{
+                marginTop: "15px",
+                marginBottom: "15px",
+              }}
+            >
+              <label
+                style={{
+                  display: "block",
+                  fontWeight: "bold",
+                  marginBottom: "8px",
+                }}
+              >
+                Escolha o espaÃ§o para esta compra:
+              </label>
+
+              <select
+                value={espacoSelecionado}
+                onChange={(e) =>
+                  setEspacoSelecionado(e.target.value)
+                }
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  fontSize: "16px",
+                  backgroundColor: "#e0e0e0",
+                  color: "#000000",
+                  border: "2px solid #000000",
+                  borderRadius: "8px",
+                }}
+              >
+                <option value="">
+                  Selecione um espaÃ§o
+                </option>
+
+                {espacos.map((espaco) => (
+                  <option
+                    key={espaco.id}
+                    value={espaco.id}
+                  >
+                    {espaco.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* TOTAL */}
+            <div className="valt-cart-summary"><strong>Resumo do pedido</strong><small>O total serÃ¡ debitado do saldo CVT apÃ³s a confirmaÃ§Ã£o.</small></div>
+            <h3>
+              Total: {formatarCVT(totalCarrinho)}
+            </h3>
+
+            {/* FINALIZAR */}
 
             <button
-              onClick={() =>
-                setMostrarCarrinho(
-                  false
-                )
-              }
+              onClick={finalizarCompra}
+              disabled={finalizandoCompra}
               style={{
-                marginTop: "10px",
-                width: "100%",
-                padding: "12px 20px",
-                fontSize: "16px",
-                fontWeight: "bold",
+                padding: "14px 20px",
                 cursor: "pointer",
-                minHeight: "46px",
+                marginTop: "10px",
+                fontWeight: "bold",
+                fontSize: "16px",
+                width: "100%",
+                minHeight: "48px",
                 backgroundColor: "#e0e0e0",
                 color: "#000000",
                 border: "2px solid #000000",
                 borderRadius: "8px",
               }}
             >
-              Fechar
+              {finalizandoCompra ? "Processando..." : "ðŸ’³ Finalizar compra"}
             </button>
-          </div>
           </>
-        )
-      }
+        )}
+
+        {/* FECHAR */}
+
+        <button
+          onClick={() =>
+            setMostrarCarrinho(
+              false
+            )
+          }
+          style={{
+            marginTop: "10px",
+            width: "100%",
+            padding: "12px 20px",
+            fontSize: "16px",
+            fontWeight: "bold",
+            cursor: "pointer",
+            minHeight: "46px",
+            backgroundColor: "#e0e0e0",
+            color: "#000000",
+            border: "2px solid #000000",
+            borderRadius: "8px",
+          }}
+        >
+          Fechar
+        </button>
+      </div>
+    </>
+  )
+}
     </div >
   );
 }
 
 export default App;
+

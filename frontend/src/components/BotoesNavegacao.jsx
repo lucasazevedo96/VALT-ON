@@ -1,4 +1,5 @@
 import React from "react";
+import { CATEGORIAS } from "../categorias";
 
 export default function BotoesNavegacao({
   usuario,
@@ -7,6 +8,7 @@ export default function BotoesNavegacao({
   setMostrarLogin,
   setMostrarCadastro,
   setMostrarAdmin,
+  setMostrarManual,
   mostrarProdutosUsados,
   setMostrarProdutosUsados,
   carregarProdutosUsados,
@@ -23,23 +25,10 @@ export default function BotoesNavegacao({
   const fecharMenus = () => { setMostrarPerfil(false); setMostrarCategorias(false); setMostrarMenuMobile(false); };
   const abrirConta = () => { fecharMenus(); setMostrarConta(true); };
   const abrirAdmin = () => { fecharMenus(); setMostrarAdmin(true); };
+  const abrirManual = () => { fecharMenus(); setMostrarManual(true); };
   const sair = () => { fecharMenus(); onLogout(); };
 
-  const categorias = [
-    "Todos",
-    "Celulares",
-    "Informática",
-    "Casa",
-    "Moda",
-    "Esportes",
-    "Pet",
-    "Infantil",
-    "Enfeites",
-    "Bebidas",
-    "Alimentos",
-    "Escritório",
-    "Ferramentas",
-  ];
+  const categorias = ["Todos", ...CATEGORIAS];
 
   return (
     <>
@@ -105,6 +94,21 @@ export default function BotoesNavegacao({
         </div>
       )}
 
+      <button
+        type="button"
+        onClick={abrirManual}
+        style={{
+          padding: "7px 10px",
+          fontSize: "12px",
+          backgroundColor: "#000",
+          color: "#fff",
+          border: "1px solid #000",
+          borderRadius: "6px",
+          cursor: "pointer",
+        }}
+      >
+        📖 Manual
+      </button>
       {/* Perfil acessível no desktop e no celular, com saída explícita. */}
       {usuario ? (
         <div className="valt-profile-wrap">
@@ -114,8 +118,8 @@ export default function BotoesNavegacao({
           {mostrarPerfil && (
             <div id="valt-profile-menu" className="valt-profile-menu" role="group" aria-label="Opções da conta">
               <button type="button" onClick={abrirConta}>👤 Minha conta</button>
-              {usuario.admin && <button type="button" onClick={abrirAdmin}>⚙️ Painel administrativo</button>}
-              <button type="button" onClick={fecharMenus}>🛍️ Continuar na loja</button>
+              {usuario.admin && <button type="button" onClick={abrirAdmin}>⚙️ Painel administrativo</button>}
+              <button type="button" onClick={fecharMenus}>🚪 Continuar na loja</button>
               <button type="button" className="valt-logout-button" onClick={sair}>↪ Sair da conta</button>
             </div>
           )}
@@ -123,7 +127,7 @@ export default function BotoesNavegacao({
       ) : (
         <>
           <button type="button" onClick={() => { fecharMenus(); setMostrarLogin(true); }}>👤 Entrar</button>
-          <button type="button" onClick={() => { fecharMenus(); setMostrarCadastro(true); }}>📋 Criar conta</button>
+          <button type="button" onClick={() => { fecharMenus(); setMostrarCadastro(true); }}>📝 Criar conta</button>
         </>
       )}
 
