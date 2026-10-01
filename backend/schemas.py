@@ -13,6 +13,7 @@ class ProdutoBase(BaseModel):
     estoque: int = 0
     prazo_entrega_dias: int = 3
     imagem: str | None = None
+    exclusiva: bool = False
 
 
 class ProdutoCreate(ProdutoBase):
@@ -82,10 +83,13 @@ class CompraCreate(BaseModel):
     cliente_id: int | None = None
     espaco_id: int | None = None
     itens: list[ItemCompra]
+    eh_presente: bool = False
+    destinatario_id: int | None = None
+    mensagem_presente: str | None = None
 
 
 # =========================================================
-# CASAS / ESPAÇOS
+# CASAS / ESPAÃ‡OS
 # =========================================================
 
 class CasaCompra(BaseModel):
@@ -136,7 +140,7 @@ class OfertaUsadoAceitarCriar(BaseModel):
     comprador_id: int
     espaco_id: int
 # =========================================================
-# SUGESTÕES DOS CLIENTES
+# SUGESTÃ•ES DOS CLIENTES
 # =========================================================
 
 class SugestaoCriar(BaseModel):
